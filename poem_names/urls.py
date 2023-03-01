@@ -15,7 +15,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from gen_names.views import generate_name_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/generate-name', generate_name_view, name='generate_name'),
+    # 其他接口路由
 ]
