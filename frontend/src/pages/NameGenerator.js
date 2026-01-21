@@ -15,7 +15,7 @@ import {
 } from 'antd';
 import { ReloadOutlined, HeartOutlined } from '@ant-design/icons';
 import NameCard from '../components/NameCard';
-import { generateNames, getSurnames, clearGeneratedNames } from '../store/nameSlice';
+import { generateNames, getSurnames, clearGeneratedNames, checkLlmStatus, configureLlm } from '../store/nameSlice';
 
 const { Title, Paragraph } = Typography;
 const { Option } = Select;
@@ -26,11 +26,23 @@ const NameGenerator = () => {
   const [surnameSearch, setSurnameSearch] = useState('');
   const [surnamePage, setSurnamePage] = useState(1);
 
+  // LLM配置状态
+  const [llmEnabled, setLlmEnabled] = useState(false);
+  const [showLlmConfig, setShowLlmConfig] = useState(false);
+  const [llmConfig, setLlmConfig] = useState({
+    api_key: '',
+    api_url: 'https://api.openai.com/v1/chat/completions',
+    model: 'gpt-3.5-turbo'
+  });
+
   const {
     generatedNames,
     surnames,
     surnamesLoading,
     surnamesHasNext,
+    llmStatus,
+    llmLoading,
+    llmError,
     loading,
     error
   } = useSelector(state => state.names);
@@ -42,7 +54,34 @@ const NameGenerator = () => {
 
     // 清理之前的生成结果
     dispatch(clearGeneratedNames());
+
+    // 检查LLM状态
+    dispatch(checkLlmStatus());
   }, [dispatch]);
+
+  // 同步本地 UI 状态到 store 返回的 llmStatus
+  useEffect(() => {
+    if (llmStatus && typeof llmStatus.enabled === 'boolean') {
+      setLlmEnabled(llmStatus.enabled);
+    }
+  }, [llmStatus]);
+
+  // 配置LLM（通过 redux thunk）
+  const handleConfigureLlm = async () => {
+    try {
+      const result = await dispatch(configureLlm({ ...llmConfig, enabled: llmEnabled })).unwrap();
+      if (result?.success) {
+        message.success('LLM配置成功！');
+        setShowLlmConfig(false);
+        dispatch(checkLlmStatus());
+      } else {
+        message.error(result?.message || 'LLM配置失败');
+      }
+    } catch (err) {
+      const msg = typeof err === 'object' && err !== null ? (err.detail || err.message) : err;
+      message.error(msg || 'LLM配置请求失败');
+    }
+  };
 
   // 姓氏搜索处理
   const handleSurnameSearch = useCallback((value) => {
@@ -257,6 +296,93 @@ const NameGenerator = () => {
               >
                 <Switch checkedChildren="开启" unCheckedChildren="关闭" />
               </Form.Item>
+
+              {/* LLM增强功能 */}
+              {llmStatus && (
+                <div style={{ marginTop: 16, padding: 12, background: '#f6ffed', borderRadius: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontWeight: 'bold', color: '#52c41a' }}>
+                      🤖 AI增强功能
+                      {llmStatus.enabled && <span style={{ color: '#1890ff' }}> (已启用)</span>}
+                    </span>
+                    <Button
+                      type="link"
+                      size="small"
+                      onClick={() => setShowLlmConfig(!showLlmConfig)}
+                    >
+                      {showLlmConfig ? '收起配置' : '配置'}
+                    </Button>
+                  </div>
+
+                  {llmError && (
+                    <div style={{ marginBottom: 8, color: '#ff4d4f', fontSize: '12px' }}>
+                      {typeof llmError === 'string' ? llmError : 'LLM状态异常'}
+                    </div>
+                  )}
+
+                  {showLlmConfig && (
+                    <div style={{ marginTop: 12 }}>
+                      <Form.Item label="启用AI解释">
+                        <Switch
+                          checked={llmEnabled}
+                          onChange={setLlmEnabled}
+                          checkedChildren="开启"
+                          unCheckedChildren="关闭"
+                        />
+                      </Form.Item>
+
+                      {llmEnabled && (
+                        <>
+                          <Form.Item label="API Key">
+                            <input
+                              type="password"
+                              value={llmConfig.api_key}
+                              onChange={(e) => setLlmConfig({...llmConfig, api_key: e.target.value})}
+                              placeholder="输入OpenAI API Key"
+                              style={{ width: '100%', padding: '4px 8px', border: '1px solid #d9d9d9', borderRadius: 4 }}
+                            />
+                          </Form.Item>
+
+                          <Form.Item label="模型">
+                            <Select
+                              value={llmConfig.model}
+                              onChange={(value) => setLlmConfig({...llmConfig, model: value})}
+                              style={{ width: '100%' }}
+                            >
+                              <Option value="gpt-3.5-turbo">GPT-3.5 Turbo</Option>
+                              <Option value="gpt-4">GPT-4</Option>
+                              <Option value="gpt-4-turbo">GPT-4 Turbo</Option>
+                            </Select>
+                          </Form.Item>
+
+                          <Form.Item label="API地址">
+                            <input
+                              type="text"
+                              value={llmConfig.api_url}
+                              onChange={(e) => setLlmConfig({...llmConfig, api_url: e.target.value})}
+                              placeholder="API地址"
+                              style={{ width: '100%', padding: '4px 8px', border: '1px solid #d9d9d9', borderRadius: 4 }}
+                            />
+                          </Form.Item>
+
+                          <Button
+                            type="primary"
+                            onClick={handleConfigureLlm}
+                            style={{ width: '100%' }}
+                            loading={llmLoading}
+                          >
+                            保存配置
+                          </Button>
+                        </>
+                      )}
+
+                      <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
+                        💡 AI增强功能可以为名字生成诗意的文化解释，提升名字的文化内涵体验。
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <Form.Item>
                 <Button

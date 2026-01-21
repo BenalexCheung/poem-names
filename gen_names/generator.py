@@ -472,7 +472,36 @@ class NameGenerator:
         for name_data in result:
             name_data.pop('_full_name', None)
 
-        return result[:count]
+        # LLM增强：为前几个名字生成AI解释（可选功能）
+        final_result = result[:count]
+        if ai_recommender.get_llm_status()['enabled']:
+            try:
+                for name_data in final_result[:3]:  # 只为前3个名字生成LLM解释
+                    # 创建临时Name对象用于LLM分析
+                    temp_name = type('TempName', (), {
+                        'full_name': f"{name_data['surname'].name}{name_data['given_name']}",
+                        'surname': name_data['surname'],
+                        'given_name': name_data['given_name'],
+                        'gender': name_data['gender'],
+                        'meaning': name_data['meaning'],
+                        'origin': name_data['origin']
+                    })()
+
+                    # 生成LLM增强解释
+                    llm_explanation = ai_recommender.generate_name_explanation(temp_name, user)
+                    if llm_explanation:
+                        name_data['llm_explanation'] = llm_explanation
+
+                    # 生成增强分析
+                    enhanced_analysis = ai_recommender.enhance_name_analysis(temp_name, user)
+                    if enhanced_analysis:
+                        name_data['enhanced_analysis'] = enhanced_analysis
+
+            except Exception as e:
+                print(f"LLM增强功能失败，使用基础功能: {e}")
+                # LLM失败不影响正常功能
+
+        return final_result
 
     def _get_name_meaning(self, chars):
         """获取名字的含义"""

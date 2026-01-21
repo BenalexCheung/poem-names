@@ -397,6 +397,68 @@ const NameCard = ({ name, showFavorite = true }) => {
             </>
           )}
 
+          {/* LLM AI解释 */}
+          {name.llm_explanation && (
+            <>
+              <Divider style={{ margin: '16px 0' }} />
+              <div style={{ marginBottom: '16px' }}>
+                <Text strong>🤖 AI文化解读</Text>
+                <div style={{
+                  marginTop: '8px',
+                  padding: '12px',
+                  background: 'linear-gradient(135deg, #f6ffed 0%, #f0f9ff 100%)',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  lineHeight: '1.6',
+                  color: '#333',
+                  border: '1px solid #b7eb8f'
+                }}>
+                  {name.llm_explanation}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* LLM增强分析 */}
+          {name.enhanced_analysis && (
+            <>
+              <Divider style={{ margin: '16px 0' }} />
+              <div style={{ marginBottom: '16px' }}>
+                <Text strong>🔍 深度文化分析</Text>
+                <Row gutter={[12, 8]} style={{ marginTop: '8px' }}>
+                  {name.enhanced_analysis.cultural_value && (
+                    <Col span={24}>
+                      <div style={{ padding: '8px', background: '#fff7e6', borderRadius: '4px', fontSize: '12px' }}>
+                        <strong>文化传承:</strong> {name.enhanced_analysis.cultural_value}
+                      </div>
+                    </Col>
+                  )}
+                  {name.enhanced_analysis.modern_adaptability && (
+                    <Col span={24}>
+                      <div style={{ padding: '8px', background: '#f6ffed', borderRadius: '4px', fontSize: '12px' }}>
+                        <strong>现代适用:</strong> {name.enhanced_analysis.modern_adaptability}
+                      </div>
+                    </Col>
+                  )}
+                  {name.enhanced_analysis.career_insights && (
+                    <Col span={12}>
+                      <div style={{ padding: '8px', background: '#f0f9ff', borderRadius: '4px', fontSize: '12px' }}>
+                        <strong>事业启示:</strong> {name.enhanced_analysis.career_insights}
+                      </div>
+                    </Col>
+                  )}
+                  {name.enhanced_analysis.personality_guidance && (
+                    <Col span={12}>
+                      <div style={{ padding: '8px', background: '#fff1f0', borderRadius: '4px', fontSize: '12px' }}>
+                        <strong>性格培养:</strong> {name.enhanced_analysis.personality_guidance}
+                      </div>
+                    </Col>
+                  )}
+                </Row>
+              </div>
+            </>
+          )}
+
           {/* 时间信息 */}
           <div style={{ textAlign: 'center', padding: '8px', background: '#fafafa', borderRadius: '6px' }}>
             <Text style={{ fontSize: '12px', color: '#999' }}>

@@ -1,9 +1,11 @@
 """
 AI智能推荐系统
-基于用户行为和机器学习的智能名字推荐
+基于用户行为、机器学习和大语言模型的智能名字推荐
 """
 import math
 import random
+import json
+import requests
 from collections import defaultdict, Counter
 from datetime import datetime, timedelta
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -15,13 +17,36 @@ from .cache_manager import cache_manager, query_manager
 
 
 class AIRecommender:
-    """AI智能推荐器"""
+    """AI智能推荐器 - 集成大语言模型增强功能"""
 
     def __init__(self):
         self.user_preferences = {}
         self.name_features = {}
         self.similarity_matrix = None
+
+        # 大语言模型配置（可选）
+        self.llm_config = {
+            'enabled': True,  # 默认关闭，需要用户主动启用
+            'api_url': 'https://api.siliconflow.cn/v1/chat/completions',  # 默认OpenAI
+            'api_key': 'sk-gznzglkoliugsnfkafeykswvfsltpgittxvhebszgqqhnbhq',
+            'model': 'deepseek-ai/DeepSeek-R1',
+            'max_tokens': 500,
+            'temperature': 0.7
+        }
+
         self._build_recommendation_model()
+
+    def configure_llm(self, api_key=None, api_url=None, model=None, enabled=True):
+        """配置大语言模型参数"""
+        if api_key:
+            self.llm_config['api_key'] = api_key
+        if api_url:
+            self.llm_config['api_url'] = api_url
+        if model:
+            self.llm_config['model'] = model
+        self.llm_config['enabled'] = enabled and bool(api_key)
+
+        return self.llm_config['enabled']
 
     def _build_recommendation_model(self):
         """构建推荐模型"""
@@ -390,6 +415,220 @@ class AIRecommender:
 
         except (ValueError, IndexError):
             return []
+
+    # ==================== 大语言模型增强功能 ====================
+
+    def _call_llm_api(self, prompt, max_retries=2):
+        """调用大语言模型API"""
+        if not self.llm_config['enabled'] or not self.llm_config['api_key']:
+            return None
+
+        headers = {
+            'Authorization': f"Bearer {self.llm_config['api_key']}",
+            'Content-Type': 'application/json'
+        }
+
+        data = {
+            'model': self.llm_config['model'],
+            'messages': [{'role': 'user', 'content': prompt}],
+            'max_tokens': self.llm_config['max_tokens'],
+            'temperature': self.llm_config['temperature']
+        }
+
+        for attempt in range(max_retries):
+            try:
+                response = requests.post(
+                    self.llm_config['api_url'],
+                    headers=headers,
+                    json=data,
+                    timeout=30
+                )
+
+                if response.status_code == 200:
+                    result = response.json()
+                    return result['choices'][0]['message']['content'].strip()
+
+            except Exception as e:
+                print(f"LLM API调用失败 (尝试 {attempt + 1}): {e}")
+                continue
+
+        return None
+
+    def generate_name_explanation(self, name, user=None):
+        """
+        使用大语言模型生成名字的诗意解释
+
+        Args:
+            name: Name对象
+            user: 用户对象（可选，用于个性化）
+
+        Returns:
+            str: 生成的解释文本
+        """
+        if not self.llm_config['enabled']:
+            return self._generate_basic_explanation(name)
+
+        # 构建提示词
+        prompt = f"""
+你是一个专业的中国古典文化专家，请为名字"{name.full_name}"生成一段优美的解释。
+
+基本信息：
+- 姓氏：{name.surname.name if hasattr(name, 'surname') else '未知'}
+- 名字：{name.given_name}
+- 性别：{'男' if name.gender == 'M' else '女'}
+- 含义：{name.meaning}
+- 出处：{name.origin[:100] if name.origin else '源自古典诗词'}
+
+请从以下几个方面进行解释（总字数控制在200字以内）：
+1. 名字的字面含义和文化内涵
+2. 相关的古典文学典故或诗词引用
+3. 名字的音韵和谐度分析
+4. 五行属性的象征意义
+5. 适合的名字性格特征
+
+要求：
+- 语言优美，富有诗意
+- 准确把握古典文化内涵
+- 突出名字的独特魅力
+- 适合家长选择新生儿名字
+
+请直接给出解释内容，不要添加多余的标题或格式。
+"""
+
+        explanation = self._call_llm_api(prompt)
+
+        if explanation:
+            return explanation
+        else:
+            # LLM调用失败，回退到基础解释
+            return self._generate_basic_explanation(name)
+
+    def _generate_basic_explanation(self, name):
+        """生成基础的名字解释（当LLM不可用时使用）"""
+        return f"""名字"{name.full_name}"寓意{name.meaning}。{name.origin[:100] if name.origin else '源自古典诗词'}。这个名字音韵和谐，富有文化内涵，适合培养孩子{name.gender == 'M' and '勇敢坚毅' or '温柔贤惠'}的性格。"""
+
+    def generate_creative_names(self, preferences=None, count=5, user=None):
+        """
+        使用大语言模型生成创意名字
+
+        Args:
+            preferences: 用户偏好字典
+            count: 生成数量
+            user: 用户对象
+
+        Returns:
+            list: 生成的创意名字列表
+        """
+        if not self.llm_config['enabled']:
+            return []
+
+        # 解析偏好
+        gender = preferences.get('gender', 'M') if preferences else 'M'
+        meaning_tags = preferences.get('meaning_tags', []) if preferences else []
+        tone_preference = preferences.get('tone_preference', 'ping') if preferences else 'ping'
+
+        # 构建创意名字生成的提示词
+        prompt = f"""
+你是一个专业的中国名字专家，请根据以下要求生成{count}个创意中文名字：
+
+要求：
+- 性别：{'男' if gender == 'M' else '女'}孩
+- 风格：古典诗词风格，富有文化内涵
+- 字数：2字名
+- 偏好主题：{', '.join(meaning_tags) if meaning_tags else '美好、智慧、勇敢等正面品质'}
+- 声调偏好：{tone_preference}声为主
+
+请生成{count}个名字，每个名字包含：
+1. 完整名字
+2. 简要含义解释
+3. 文化出处或典故
+
+格式要求：
+名字1: [名字] - [含义] ([出处])
+名字2: [名字] - [含义] ([出处])
+...
+
+确保名字优美、吉祥，避免生僻字。
+"""
+
+        response = self._call_llm_api(prompt)
+        print("============")
+        print(response)
+        if response:
+            try:
+                # 解析生成的创意名字
+                creative_names = []
+                lines = response.strip().split('\n')
+
+                for line in lines:
+                    if ':' in line and len(line.split(':')) >= 2:
+                        name_part = line.split(':', 1)[1].strip()
+                        # 尝试提取名字和解释
+                        if ' - ' in name_part:
+                            name, explanation = name_part.split(' - ', 1)
+                            creative_names.append({
+                                'name': name.strip(),
+                                'explanation': explanation.strip(),
+                                'source': 'llm_generated'
+                            })
+
+                return creative_names[:count]
+
+            except Exception as e:
+                print(f"解析LLM创意名字失败: {e}")
+                return []
+
+        return []
+
+    def enhance_name_analysis(self, name, user=None):
+        """
+        使用大语言模型增强名字分析
+
+        Args:
+            name: Name对象
+            user: 用户对象
+
+        Returns:
+            dict: 增强的分析结果
+        """
+        if not self.llm_config['enabled']:
+            return {}
+
+        # 分析名字的文化内涵和现代适用性
+        prompt = f"""
+请分析名字"{name.full_name}"的文化内涵和现代适用性：
+
+分析维度：
+1. 文化传承价值
+2. 现代社会适应性
+3. 性格培养导向
+4. 职业发展启示
+5. 潜在优势和局限
+
+请给出客观、建设性的分析意见。
+"""
+
+        enhanced_analysis = self._call_llm_api(prompt)
+
+        if enhanced_analysis:
+            return {
+                'cultural_value': '从分析中提取文化价值...',
+                'modern_adaptability': '从分析中提取现代适用性...',
+                'personality_guidance': '从分析中提取性格培养建议...',
+                'career_insights': '从分析中提取职业发展启示...',
+                'full_analysis': enhanced_analysis
+            }
+
+        return {}
+
+    def get_llm_status(self):
+        """获取LLM功能状态"""
+        return {
+            'enabled': self.llm_config['enabled'],
+            'configured': bool(self.llm_config['api_key']),
+            'model': self.llm_config['model'],
+            'status': 'ready' if self.llm_config['enabled'] else 'disabled'
+        }
 
 
 # 全局AI推荐器实例

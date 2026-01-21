@@ -1,6 +1,32 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
+// LLM 状态查询
+export const checkLlmStatus = createAsyncThunk(
+  'names/checkLlmStatus',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axios.get('/names/llm_status/');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || '获取LLM状态失败');
+    }
+  }
+);
+
+// LLM 配置
+export const configureLlm = createAsyncThunk(
+  'names/configureLlm',
+  async (params, { rejectWithValue }) => {
+    try {
+      const response = await axios.post('/names/configure_llm/', params);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || '配置LLM失败');
+    }
+  }
+);
+
 // 生成名字异步action
 export const generateNames = createAsyncThunk(
   'names/generate',
@@ -106,6 +132,9 @@ const nameSlice = createSlice({
     surnamesHasNext: true,
     surnamesLoading: false,
     surnamesError: null,
+    llmStatus: null,
+    llmLoading: false,
+    llmError: null,
     loading: false,
     error: null,
   },
@@ -122,6 +151,46 @@ const nameSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      .addCase(checkLlmStatus.pending, (state) => {
+        state.llmLoading = true;
+        state.llmError = null;
+      })
+      .addCase(checkLlmStatus.fulfilled, (state, action) => {
+        state.llmLoading = false;
+        state.llmStatus = action.payload;
+      })
+      .addCase(checkLlmStatus.rejected, (state, action) => {
+        state.llmLoading = false;
+        const error = action.payload;
+        if (typeof error === 'object' && error !== null) {
+          state.llmError = error.detail || error.message || '获取LLM状态失败';
+        } else {
+          state.llmError = error || '获取LLM状态失败';
+        }
+      })
+      .addCase(configureLlm.pending, (state) => {
+        state.llmLoading = true;
+        state.llmError = null;
+      })
+      .addCase(configureLlm.fulfilled, (state, action) => {
+        state.llmLoading = false;
+        // 后端返回结构：{ success, status, message, config }
+        // 这里把最新状态合并进 llmStatus，便于前端直接使用
+        state.llmStatus = {
+          ...(state.llmStatus || {}),
+          ...(action.payload?.config || {}),
+          status: action.payload?.status || (state.llmStatus && state.llmStatus.status) || 'unknown',
+        };
+      })
+      .addCase(configureLlm.rejected, (state, action) => {
+        state.llmLoading = false;
+        const error = action.payload;
+        if (typeof error === 'object' && error !== null) {
+          state.llmError = error.detail || error.message || '配置LLM失败';
+        } else {
+          state.llmError = error || '配置LLM失败';
+        }
+      })
       .addCase(generateNames.pending, (state) => {
         state.loading = true;
         state.error = null;

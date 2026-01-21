@@ -300,6 +300,71 @@ class NameViewSet(viewsets.ModelViewSet):
         serializer = NameSerializer(names, many=True, context={'request': request})
         return Response(serializer.data)
 
+    @action(detail=False, methods=['post'])
+    def configure_llm(self, request):
+        """配置大语言模型"""
+        from .ai_recommender import ai_recommender
+
+        api_key = request.data.get('api_key')
+        api_url = request.data.get('api_url')
+        model = request.data.get('model', 'gpt-3.5-turbo')
+        enabled = request.data.get('enabled', True)
+
+        # 安全检查：不返回API key
+        success = ai_recommender.configure_llm(
+            api_key=api_key,
+            api_url=api_url,
+            model=model,
+            enabled=enabled
+        )
+
+        status_info = ai_recommender.get_llm_status()
+
+        return Response({
+            'success': success,
+            'status': status_info['status'],
+            'message': 'LLM配置已更新' if success else 'LLM配置失败，请检查API密钥',
+            'config': {
+                'enabled': status_info['enabled'],
+                'model': status_info['model']
+            }
+        })
+
+    @action(detail=False, methods=['get'])
+    def llm_status(self, request):
+        """获取LLM功能状态"""
+        from .ai_recommender import ai_recommender
+
+        status_info = ai_recommender.get_llm_status()
+        return Response(status_info)
+
+    @action(detail=False, methods=['post'])
+    def generate_creative(self, request):
+        """生成LLM创意名字"""
+        from .ai_recommender import ai_recommender
+
+        serializer = NameGenerationSerializer(data=request.data)
+        if serializer.is_valid():
+            data = serializer.validated_data
+
+            # 生成创意名字
+            creative_names = ai_recommender.generate_creative_names(
+                preferences={
+                    'gender': data['gender'],
+                    'meaning_tags': data.get('meaning_tags', []),
+                    'tone_preference': data.get('tone_preference', 'ping')
+                },
+                count=data['count'],
+                user=request.user
+            )
+
+            return Response({
+                'creative_names': creative_names,
+                'count': len(creative_names)
+            })
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class UserFavoriteViewSet(viewsets.ModelViewSet):
     """用户收藏视图集"""
