@@ -79,6 +79,7 @@ class NameSerializer(serializers.ModelSerializer):
         model = Name
         fields = ('id', 'surname', 'surname_id', 'given_name', 'full_name', 'gender',
                  'pinyin', 'meaning', 'origin', 'reference_poetry', 'tags',
+                 'wuxing_analysis', 'phonology_analysis', 'bagua_suggestions', 'name_score',
                  'is_favorite', 'is_favorited', 'created_by', 'created_at', 'updated_at')
         read_only_fields = ('id', 'full_name', 'pinyin', 'created_by', 'created_at', 'updated_at')
 
@@ -124,6 +125,7 @@ class NameGenerationSerializer(serializers.Serializer):
         required=False,
         allow_empty=True
     )
+    use_ai = serializers.BooleanField(default=True, required=False)
 
     def validate_surname(self, value):
         """验证姓氏是否存在"""

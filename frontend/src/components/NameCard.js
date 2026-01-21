@@ -1,10 +1,22 @@
 import React from 'react';
 import { useDispatch } from 'react-redux';
-import { Card, Button, Tag, Typography, message } from 'antd';
+import { Card, Button, Tag, Typography, message, Progress, Divider, Row, Col } from 'antd';
 import { HeartOutlined, HeartFilled, CopyOutlined } from '@ant-design/icons';
 import { toggleFavorite } from '../store/nameSlice';
 
 const { Text } = Typography;
+
+// 五行名称映射
+const getWuxingName = (wuxing) => {
+  const names = {
+    'jin': '金',
+    'mu': '木',
+    'shui': '水',
+    'huo': '火',
+    'tu': '土'
+  };
+  return names[wuxing] || wuxing;
+};
 
 const NameCard = ({ name, showFavorite = true }) => {
   const dispatch = useDispatch();
@@ -87,6 +99,115 @@ const NameCard = ({ name, showFavorite = true }) => {
         <div style={{ marginBottom: '8px' }}>
           <Text strong>拼音：</Text>
           <Text code>{name.pinyin}</Text>
+        </div>
+      )}
+
+      {/* 音韵分析 */}
+      {name.phonology_analysis && (
+        <>
+          <Divider style={{ margin: '12px 0' }} />
+          <div style={{ marginBottom: '12px' }}>
+            <Text strong>音韵分析：</Text>
+            <div style={{ marginTop: '8px' }}>
+              <Row gutter={[16, 8]}>
+                <Col span={12}>
+                  <div style={{ textAlign: 'center' }}>
+                    <Text style={{ fontSize: '12px' }}>韵律和谐度</Text>
+                    <Progress
+                      type="circle"
+                      percent={name.phonology_analysis.rhythm_score || 0}
+                      width={50}
+                      strokeWidth={6}
+                      format={(percent) => `${percent}%`}
+                    />
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div style={{ textAlign: 'center' }}>
+                    <Text style={{ fontSize: '12px' }}>声调分布</Text>
+                    <div style={{ fontSize: '10px', marginTop: '4px' }}>
+                      {name.phonology_analysis.tone_analysis?.tone_sequence?.map((tone, idx) => (
+                        <span key={idx} style={{
+                          color: tone === 'ping' ? '#1890ff' : tone === 'shang' ? '#52c41a' : tone === 'qu' ? '#faad14' : '#f5222d',
+                          margin: '0 2px'
+                        }}>
+                          {tone === 'ping' ? '平' : tone === 'shang' ? '上' : tone === 'qu' ? '去' : '入'}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </Col>
+              </Row>
+              {name.phonology_analysis.rhythm_level && (
+                <div style={{ textAlign: 'center', marginTop: '8px' }}>
+                  <Tag color={name.phonology_analysis.rhythm_level.color}>
+                    韵律: {name.phonology_analysis.rhythm_level.level}
+                  </Tag>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 五行分析 */}
+      {name.wuxing_analysis && (
+        <>
+          <Divider style={{ margin: '12px 0' }} />
+          <div style={{ marginBottom: '12px' }}>
+            <Text strong>五行分析：</Text>
+            <Row gutter={[8, 8]} style={{ marginTop: '8px' }}>
+              {Object.entries(name.wuxing_analysis.wuxing_percentages || {}).map(([wuxing, percentage]) => (
+                <Col span={4} key={wuxing}>
+                  <div style={{ textAlign: 'center' }}>
+                    <Text style={{ fontSize: '12px' }}>{getWuxingName(wuxing)}</Text>
+                    <Progress
+                      type="circle"
+                      percent={percentage}
+                      width={40}
+                      strokeWidth={6}
+                      format={() => `${percentage}%`}
+                    />
+                  </div>
+                </Col>
+              ))}
+            </Row>
+            {name.wuxing_analysis.balance_level && (
+              <div style={{ textAlign: 'center', marginTop: '8px' }}>
+                <Tag color={name.wuxing_analysis.balance_level.color}>
+                  平衡度: {name.wuxing_analysis.balance_level.level}
+                </Tag>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* 名字评分 */}
+      {name.name_score && (
+        <div style={{ marginBottom: '12px' }}>
+          <Text strong>综合评分：</Text>
+          <Tag color={name.name_score.level?.color || 'blue'}>
+            {name.name_score.level?.grade}级 ({name.name_score.total_score}分)
+          </Tag>
+          <div style={{ fontSize: '12px', marginTop: '4px', color: '#666' }}>
+            五行: {name.name_score.wuxing_score || 0}分 |
+            音韵: {name.name_score.phonology_score || 0}分
+          </div>
+        </div>
+      )}
+
+      {/* 八卦建议 */}
+      {name.bagua_suggestions && name.bagua_suggestions.suggestions && name.bagua_suggestions.suggestions.length > 0 && (
+        <div style={{ marginBottom: '12px' }}>
+          <Text strong>八卦方位建议：</Text>
+          <div style={{ marginTop: '4px' }}>
+            {name.bagua_suggestions.suggestions.slice(0, 2).map((suggestion, index) => (
+              <Tag key={index} style={{ margin: '2px' }}>
+                {suggestion.direction}({suggestion.bagua}): {suggestion.meaning}
+              </Tag>
+            ))}
+          </div>
         </div>
       )}
 

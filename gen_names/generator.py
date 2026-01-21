@@ -6,6 +6,9 @@ import random
 import logging
 from collections import defaultdict
 from .models import Word, Surname, Poetry, Name
+from .wuxing_analyzer import wuxing_analyzer
+from .phonology_analyzer import phonology_analyzer
+from .ai_recommender import ai_recommender
 
 logger = logging.getLogger(__name__)
 
@@ -190,9 +193,9 @@ class NameGenerator:
         candidates.sort(key=lambda x: x['score'], reverse=True)
         return candidates[:50]
 
-    def generate_names(self, surname=None, gender='M', count=10, length=2, preferences=None):
+    def generate_names(self, surname=None, gender='M', count=10, length=2, preferences=None, user=None, use_ai=True):
         """
-        生成名字
+        生成名字（支持AI智能推荐）
 
         Args:
             surname: 姓氏对象或姓氏字符串
@@ -202,6 +205,8 @@ class NameGenerator:
             preferences: 偏好设置字典，包含：
                 - tone_preference: 声调偏好 ('ping', 'ze', 'unknown')
                 - meaning_tags: 含义标签列表
+            user: 用户对象（用于个性化推荐）
+            use_ai: 是否使用AI推荐
 
         Returns:
             生成的名字列表，每个包含名字和相关信息
@@ -231,19 +236,75 @@ class NameGenerator:
 
         # 转换为Name对象格式
         result = []
-        for candidate in candidates[:count]:
+        for candidate in candidates[:count * 2]:  # 生成更多候选用于AI筛选
+            name_chars = candidate['chars']
+
+            # 进行五行分析
+            wuxing_analysis = wuxing_analyzer.analyze_name_wuxing(name_chars)
+            bagua_suggestions = wuxing_analyzer.get_bagua_suggestions(wuxing_analysis)
+
+            # 进行音韵分析
+            phonology_analysis = phonology_analyzer.analyze_name_phonology(name_chars)
+
+            # 计算综合评分
+            wuxing_score = wuxing_analyzer.get_name_score(wuxing_analysis)
+            phonology_score = phonology_analyzer.get_phonology_score(phonology_analysis)
+
+            # 综合评分：五行占60%，音韵占40%
+            total_score = (wuxing_score['total_score'] * 0.6) + (phonology_score['total_score'] * 0.4)
+            total_score = round(total_score, 1)
+
+            name_score = {
+                'total_score': total_score,
+                'wuxing_score': wuxing_score['total_score'],
+                'phonology_score': phonology_score['total_score'],
+                'level': wuxing_score['level'] if wuxing_score['total_score'] > phonology_score['total_score'] else phonology_score['level']
+            }
+
             name_data = {
                 'surname': surname_obj,
                 'given_name': candidate['name'],
                 'gender': gender,
-                'meaning': self._get_name_meaning(candidate['chars']),
-                'origin': self._get_name_origin(candidate['chars']),
-                'tags': self._get_name_tags(candidate['chars'])
+                'meaning': self._get_name_meaning(name_chars),
+                'origin': self._get_name_origin(name_chars),
+                'tags': self._get_name_tags(name_chars),
+                'wuxing_analysis': wuxing_analysis,
+                'phonology_analysis': phonology_analysis,
+                'bagua_suggestions': bagua_suggestions,
+                'name_score': name_score,
+                'ai_score': 0  # AI评分，稍后计算
             }
 
             result.append(name_data)
 
-        return result
+        # AI智能推荐排序
+        if use_ai and user and len(result) > count:
+            try:
+                # 为名字对象添加临时ID用于AI计算
+                for i, name_data in enumerate(result):
+                    name_data['_temp_id'] = i
+
+                # 使用AI推荐器进行个性化排序
+                recommended_names = ai_recommender.get_personalized_recommendations(
+                    user, result, count
+                )
+
+                # 更新AI评分
+                for name_data in result:
+                    if hasattr(name_data, '_temp_id'):
+                        delattr(name_data, '_temp_id')
+
+                return recommended_names
+
+            except Exception as e:
+                print(f"AI推荐失败，使用默认排序: {e}")
+                # AI失败时按综合评分排序
+                result.sort(key=lambda x: x['name_score']['total_score'], reverse=True)
+
+        # 默认排序（按综合评分）
+        result.sort(key=lambda x: x['name_score']['total_score'], reverse=True)
+
+        return result[:count]
 
     def _get_name_meaning(self, chars):
         """获取名字的含义"""
@@ -312,7 +373,7 @@ def generate_name(surname=None, gender='M', length=2, preferences=None):
     return "诗韵"
 
 
-def generate_multiple_names(surname=None, gender='M', count=5, length=2, preferences=None):
+def generate_multiple_names(surname=None, gender='M', count=5, length=2, preferences=None, user=None, use_ai=True):
     """
     生成多个名字
 
@@ -322,6 +383,8 @@ def generate_multiple_names(surname=None, gender='M', count=5, length=2, prefere
         count: 生成数量
         length: 名字长度
         preferences: 偏好设置
+        user: 用户对象（用于个性化推荐）
+        use_ai: 是否使用AI推荐
 
     Returns:
         生成的名字列表
@@ -331,5 +394,7 @@ def generate_multiple_names(surname=None, gender='M', count=5, length=2, prefere
         gender=gender,
         count=count,
         length=length,
-        preferences=preferences
+        preferences=preferences,
+        user=user,
+        use_ai=use_ai
     )

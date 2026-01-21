@@ -132,7 +132,7 @@ class NameViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def generate(self, request):
-        """生成名字"""
+        """生成名字（支持AI智能推荐）"""
         serializer = NameGenerationSerializer(data=request.data)
         if serializer.is_valid():
             data = serializer.validated_data
@@ -141,6 +141,9 @@ class NameViewSet(viewsets.ModelViewSet):
             surname = None
             if data.get('surname'):
                 surname = Surname.objects.get(name=data['surname'])
+
+            # 检查是否启用AI推荐
+            use_ai = data.get('use_ai', True)
 
             # 生成名字
             generated_names = generate_multiple_names(
@@ -151,7 +154,9 @@ class NameViewSet(viewsets.ModelViewSet):
                 preferences={
                     'tone_preference': data.get('tone_preference', 'unknown'),
                     'meaning_tags': data.get('meaning_tags', [])
-                }
+                },
+                user=request.user,
+                use_ai=use_ai
             )
 
             # 转换为Name对象并保存
@@ -170,6 +175,11 @@ class NameViewSet(viewsets.ModelViewSet):
                 )
                 # 设置tags（JSONField）
                 name_obj.tags = name_dict.get('tags', [])
+                # 设置五行、音韵和AI分析数据
+                name_obj.wuxing_analysis = name_dict.get('wuxing_analysis', {})
+                name_obj.phonology_analysis = name_dict.get('phonology_analysis', {})
+                name_obj.bagua_suggestions = name_dict.get('bagua_suggestions', {})
+                name_obj.name_score = name_dict.get('name_score', {})
                 name_obj.save()
                 saved_names.append(name_obj)
 
@@ -227,6 +237,8 @@ class NameViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def favorite(self, request, pk=None):
         """收藏/取消收藏名字"""
+        from .ai_recommender import ai_recommender
+
         name = self.get_object()
         favorite, created = UserFavorite.objects.get_or_create(
             user=request.user,
@@ -236,8 +248,12 @@ class NameViewSet(viewsets.ModelViewSet):
         if not created:
             # 已经收藏，取消收藏
             favorite.delete()
+            # 更新AI模型
+            ai_recommender.update_user_model(request.user)
             return Response({'message': '已取消收藏'})
 
+        # 更新AI模型
+        ai_recommender.update_user_model(request.user)
         serializer = UserFavoriteSerializer(favorite, context={'request': request})
         return Response(serializer.data)
 

@@ -71,8 +71,18 @@ class Word(models.Model):
         ('unknown', '未知'),
     ]
 
+    WUXING = [
+        ('jin', '金'),
+        ('mu', '木'),
+        ('shui', '水'),
+        ('huo', '火'),
+        ('tu', '土'),
+        ('unknown', '未知'),
+    ]
+
     character = models.CharField(max_length=5, unique=True, verbose_name="汉字")
     pinyin = models.CharField(max_length=20, verbose_name="拼音")
+    wuxing = models.CharField(max_length=10, choices=WUXING, default='unknown', verbose_name="五行属性")
     meaning = models.TextField(verbose_name="含义")
     gender_preference = models.CharField(max_length=10, choices=GENDERS, default='neutral', verbose_name="性别倾向")
     tone = models.CharField(max_length=10, choices=TONES, default='unknown', verbose_name="声调")
@@ -82,6 +92,11 @@ class Word(models.Model):
 
     class Meta:
         verbose_name = "字词"
+        indexes = [
+            models.Index(fields=['frequency']),  # 频率索引
+            models.Index(fields=['wuxing']),  # 五行索引
+            models.Index(fields=['gender_preference']),  # 性别倾向索引
+        ]
         verbose_name_plural = verbose_name
         ordering = ['-frequency', 'character']
 
@@ -105,10 +120,21 @@ class Name(models.Model):
     origin = models.TextField(verbose_name="词源")
     reference_poetry = models.ManyToManyField(Poetry, related_name='generated_names', verbose_name="参考诗词")
     tags = models.JSONField(default=list, verbose_name="标签")
+    wuxing_analysis = models.JSONField(default=dict, verbose_name="五行分析")
+    phonology_analysis = models.JSONField(default=dict, verbose_name="音韵分析")
+    bagua_suggestions = models.JSONField(default=dict, verbose_name="八卦建议")
+    name_score = models.JSONField(default=dict, verbose_name="名字评分")
     is_favorite = models.BooleanField(default=False, verbose_name="是否收藏")
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='generated_names', verbose_name="创建者")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['created_by', '-created_at']),  # 用户生成记录索引
+            models.Index(fields=['gender']),  # 性别索引
+            models.Index(fields=['-created_at']),  # 创建时间索引
+        ]
 
     class Meta:
         verbose_name = "名字"
@@ -135,6 +161,10 @@ class UserFavorite(models.Model):
         verbose_name = "用户收藏"
         verbose_name_plural = verbose_name
         unique_together = ['user', 'name']
+        indexes = [
+            models.Index(fields=['user', '-created_at']),  # 用户收藏时间索引
+            models.Index(fields=['-created_at']),  # 全局时间索引
+        ]
         ordering = ['-created_at']
 
     def __str__(self):

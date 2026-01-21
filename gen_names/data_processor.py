@@ -22,6 +22,7 @@ class PoetryDataProcessor:
     def __init__(self):
         self.data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'poetry')
         self.pinyin_dict = self._load_pinyin_dict()
+        self.wuxing_dict = self._load_wuxing_dict()
 
     def _load_pinyin_dict(self):
         """加载拼音词典"""
@@ -60,6 +61,50 @@ class PoetryDataProcessor:
             '族': 'zu2', '既': 'ji4', '睦': 'mu4', '平': 'ping2', '章': 'zhang1',
             '百': 'bai3', '姓': 'xing4', '黎': 'li2', '变': 'bian4', '时': 'shi2',
             '雍': 'yong1'
+        }
+
+    def _load_wuxing_dict(self):
+        """加载五行属性词典"""
+        # 基于汉字部首和意义确定五行属性
+        # 金: 金属相关、白色、西方等
+        # 木: 植物相关、绿色、东方等
+        # 水: 水相关、黑色、北方等
+        # 火: 火相关、红色、南方等
+        # 土: 土相关、黄色、中央等
+        return {
+            # 金属性字
+            '金': 'jin', '银': 'jin', '铜': 'jin', '铁': 'jin', '钢': 'jin',
+            '白': 'jin', '银': 'jin', '亮': 'jin', '光': 'jin', '辉': 'jin',
+            '锋': 'jin', '锐': 'jin', '利': 'jin', '坚': 'jin', '硬': 'jin',
+            '西': 'jin', '秋': 'jin', '庚': 'jin', '辛': 'jin', '申': 'jin',
+
+            # 木属性字
+            '木': 'mu', '林': 'mu', '森': 'mu', '树': 'mu', '竹': 'mu',
+            '草': 'mu', '花': 'mu', '叶': 'mu', '枝': 'mu', '根': 'mu',
+            '绿': 'mu', '青': 'mu', '蓝': 'mu', '翠': 'mu', '葱': 'mu',
+            '东': 'mu', '春': 'mu', '甲': 'mu', '乙': 'mu', '寅': 'mu',
+            '卯': 'mu', '生': 'mu', '长': 'mu', '发': 'mu', '育': 'mu',
+
+            # 水属性字
+            '水': 'shui', '河': 'shui', '江': 'shui', '海': 'shui', '湖': 'shui',
+            '雨': 'shui', '雪': 'shui', '冰': 'shui', '泉': 'shui', '溪': 'shui',
+            '黑': 'shui', '玄': 'shui', '深': 'shui', '寒': 'shui', '冷': 'shui',
+            '北': 'shui', '冬': 'shui', '壬': 'shui', '癸': 'shui', '亥': 'shui',
+            '子': 'shui', '流': 'shui', '动': 'shui', '柔': 'shui', '智': 'shui',
+
+            # 火属性字
+            '火': 'huo', '日': 'huo', '阳': 'huo', '光': 'huo', '热': 'huo',
+            '红': 'huo', '赤': 'huo', '朱': 'huo', '丹': 'huo', '紫': 'huo',
+            '南': 'huo', '夏': 'huo', '丙': 'huo', '丁': 'huo', '巳': 'huo',
+            '午': 'huo', '明': 'huo', '亮': 'huo', '炎': 'huo', '炽': 'huo',
+            '烈': 'huo', '勇': 'huo', '刚': 'huo', '强': 'huo', '进': 'huo',
+
+            # 土属性字
+            '土': 'tu', '地': 'tu', '山': 'tu', '石': 'tu', '岩': 'tu',
+            '黄': 'tu', '褐': 'tu', '棕': 'tu', '厚': 'tu', '重': 'tu',
+            '中': 'tu', '央': 'tu', '戊': 'tu', '己': 'tu', '丑': 'tu',
+            '未': 'tu', '辰': 'tu', '戌': 'tu', '实': 'tu', '稳': 'tu',
+            '诚': 'tu', '信': 'tu', '忠': 'tu', '厚': 'tu', '德': 'tu',
         }
 
     def _parse_poetry_file(self, file_path, poetry_type):
@@ -136,6 +181,9 @@ class PoetryDataProcessor:
         # 获取拼音
         pinyin = self.pinyin_dict.get(character, character)
 
+        # 获取五行属性
+        wuxing = self.wuxing_dict.get(character, 'unknown')
+
         # 根据字词内容判断性别倾向和含义
         gender_preference = 'neutral'
         meaning = ""
@@ -168,8 +216,13 @@ class PoetryDataProcessor:
             meaning = "诗词用字"
             tags = ['古典', '诗意']
 
+        # 添加五行相关标签
+        if wuxing != 'unknown':
+            tags.append(f'五行{wuxing}')
+
         return {
             'pinyin': pinyin,
+            'wuxing': wuxing,
             'gender_preference': gender_preference,
             'meaning': meaning,
             'tags': tags
@@ -179,43 +232,39 @@ class PoetryDataProcessor:
         """导入诗词数据"""
         logger.info("开始导入诗词数据...")
 
-        # 处理诗经数据
-        shijing_file = os.path.join(self.data_dir, 'shijing_sample.txt')
-        if os.path.exists(shijing_file):
-            logger.info("处理诗经数据...")
-            shijing_poems = self._parse_poetry_file(shijing_file, 'shijing')
+        # 定义数据源映射
+        data_sources = {
+            'shijing_sample.txt': 'shijing',
+            'chuci_sample.txt': 'chuci',
+            'classics/lunyu.txt': 'classics',
+            'classics/mengzi.txt': 'classics',
+            'tang/tang_shi.txt': 'tang',
+        }
 
-            for poem_data in tqdm(shijing_poems, desc="导入诗经"):
-                poetry, created = Poetry.objects.get_or_create(
-                    title=poem_data['title'],
-                    poetry_type=poem_data['poetry_type'],
-                    defaults={
-                        'content': poem_data['content'],
-                        'section': poem_data['section']
-                    }
-                )
-                if created:
-                    logger.info(f"创建诗词: {poetry.title}")
+        total_poems = 0
 
-        # 处理楚辞数据
-        chuci_file = os.path.join(self.data_dir, 'chuci_sample.txt')
-        if os.path.exists(chuci_file):
-            logger.info("处理楚辞数据...")
-            chuci_poems = self._parse_poetry_file(chuci_file, 'chuci')
+        for file_path, poetry_type in data_sources.items():
+            full_path = os.path.join(self.data_dir, file_path)
+            if os.path.exists(full_path):
+                logger.info(f"处理 {poetry_type} 数据: {file_path}")
+                poems = self._parse_poetry_file(full_path, poetry_type)
 
-            for poem_data in tqdm(chuci_poems, desc="导入楚辞"):
-                poetry, created = Poetry.objects.get_or_create(
-                    title=poem_data['title'],
-                    poetry_type=poem_data['poetry_type'],
-                    defaults={
-                        'content': poem_data['content'],
-                        'section': poem_data['section']
-                    }
-                )
-                if created:
-                    logger.info(f"创建诗词: {poetry.title}")
+                for poem_data in tqdm(poems, desc=f"导入{poetry_type}"):
+                    poetry, created = Poetry.objects.get_or_create(
+                        title=poem_data['title'],
+                        poetry_type=poem_data['poetry_type'],
+                        defaults={
+                            'content': poem_data['content'],
+                            'section': poem_data['section']
+                        }
+                    )
+                    if created:
+                        logger.info(f"创建诗词: {poetry.title}")
+                        total_poems += 1
+            else:
+                logger.warning(f"文件不存在: {full_path}")
 
-        logger.info("诗词数据导入完成")
+        logger.info(f"诗词数据导入完成，共导入 {total_poems} 篇诗词")
 
     def import_word_data(self):
         """导入字词数据"""
@@ -242,6 +291,7 @@ class PoetryDataProcessor:
                     character=word_text,
                     defaults={
                         'pinyin': attributes['pinyin'],
+                        'wuxing': attributes['wuxing'],
                         'meaning': attributes['meaning'],
                         'gender_preference': attributes['gender_preference'],
                         'frequency': frequency,

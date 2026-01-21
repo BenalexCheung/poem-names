@@ -10,7 +10,8 @@ import {
   Typography,
   message,
   Spin,
-  Alert
+  Alert,
+  Switch
 } from 'antd';
 import { ReloadOutlined, HeartOutlined } from '@ant-design/icons';
 import NameCard from '../components/NameCard';
@@ -197,6 +198,15 @@ const NameGenerator = () => {
                     </Option>
                   ))}
                 </Select>
+              </Form.Item>
+
+              <Form.Item
+                name="use_ai"
+                label="智能推荐"
+                valuePropName="checked"
+                initialValue={true}
+              >
+                <Switch checkedChildren="开启" unCheckedChildren="关闭" />
               </Form.Item>
 
               <Form.Item>
