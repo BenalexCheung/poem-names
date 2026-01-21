@@ -1,0 +1,169 @@
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import axios from 'axios';
+
+// 生成名字异步action
+export const generateNames = createAsyncThunk(
+  'names/generate',
+  async (params, { rejectWithValue }) => {
+    try {
+      const response = await axios.post('/names/generate/', params);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || '生成名字失败');
+    }
+  }
+);
+
+// 搜索名字异步action
+export const searchNames = createAsyncThunk(
+  'names/search',
+  async (params, { rejectWithValue }) => {
+    try {
+      const response = await axios.post('/names/search/', params);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || '搜索名字失败');
+    }
+  }
+);
+
+// 获取收藏列表异步action
+export const getFavorites = createAsyncThunk(
+  'names/getFavorites',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axios.get('/names/favorites/');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || '获取收藏失败');
+    }
+  }
+);
+
+// 收藏/取消收藏名字异步action
+export const toggleFavorite = createAsyncThunk(
+  'names/toggleFavorite',
+  async (nameId, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(`/names/${nameId}/favorite/`);
+      return { nameId, data: response.data };
+    } catch (error) {
+      return rejectWithValue(error.response?.data || '操作失败');
+    }
+  }
+);
+
+// 获取姓氏列表异步action
+export const getSurnames = createAsyncThunk(
+  'names/getSurnames',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axios.get('/surnames/');
+      // 确保返回的是数组格式
+      const data = response.data;
+      if (Array.isArray(data)) {
+        return data;
+      } else if (data.results && Array.isArray(data.results)) {
+        // 处理分页响应
+        return data.results;
+      } else {
+        console.warn('Unexpected surnames data format:', data);
+        return [];
+      }
+    } catch (error) {
+      return rejectWithValue(error.response?.data || '获取姓氏失败');
+    }
+  }
+);
+
+const nameSlice = createSlice({
+  name: 'names',
+  initialState: {
+    generatedNames: [],
+    searchResults: [],
+    favorites: [],
+    surnames: [],
+    loading: false,
+    error: null,
+  },
+  reducers: {
+    clearGeneratedNames: (state) => {
+      state.generatedNames = [];
+    },
+    clearSearchResults: (state) => {
+      state.searchResults = [];
+    },
+    clearError: (state) => {
+      state.error = null;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(generateNames.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(generateNames.fulfilled, (state, action) => {
+        state.loading = false;
+        state.generatedNames = action.payload;
+      })
+      .addCase(generateNames.rejected, (state, action) => {
+        state.loading = false;
+        // 确保error是字符串
+        const error = action.payload;
+        if (typeof error === 'object' && error !== null) {
+          state.error = error.detail || error.message || '生成名字失败';
+        } else {
+          state.error = error || '生成名字失败';
+        }
+      })
+      .addCase(searchNames.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(searchNames.fulfilled, (state, action) => {
+        state.loading = false;
+        state.searchResults = action.payload;
+      })
+      .addCase(searchNames.rejected, (state, action) => {
+        state.loading = false;
+        // 确保error是字符串
+        const error = action.payload;
+        if (typeof error === 'object' && error !== null) {
+          state.error = error.detail || error.message || '搜索名字失败';
+        } else {
+          state.error = error || '搜索名字失败';
+        }
+      })
+      .addCase(getFavorites.fulfilled, (state, action) => {
+        state.favorites = action.payload;
+      })
+      .addCase(toggleFavorite.fulfilled, (state, action) => {
+        const { nameId } = action.payload;
+        // 更新收藏状态
+        const updateNamesInList = (names) => {
+          return names.map(name =>
+            name.id === nameId ? { ...name, is_favorited: !name.is_favorited } : name
+          );
+        };
+
+        state.generatedNames = updateNamesInList(state.generatedNames);
+        state.searchResults = updateNamesInList(state.searchResults);
+      })
+      .addCase(getSurnames.fulfilled, (state, action) => {
+        state.surnames = action.payload;
+      })
+      .addCase(getSurnames.rejected, (state, action) => {
+        // 确保error是字符串
+        const error = action.payload;
+        if (typeof error === 'object' && error !== null) {
+          state.error = error.detail || error.message || '获取姓氏失败';
+        } else {
+          state.error = error || '获取姓氏失败';
+        }
+      });
+  },
+});
+
+export const { clearGeneratedNames, clearSearchResults, clearError } = nameSlice.actions;
+export default nameSlice.reducer;

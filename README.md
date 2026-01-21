@@ -1,5 +1,256 @@
-# poem-names
-诗楚名，实现一个名字生成器，通过输入一些关键词或条件，程序能够根据《诗经》和《楚辞》中的诗词或赋文，自动生成符合条件的名字。
+# 诗楚名 - Poem Names
+
+基于《诗经》和《楚辞》的智能名字生成器，通过输入一些关键词或条件，程序能够根据古典诗词自动生成符合条件的名字。
+
+## 🚀 快速开始
+
+### 环境要求
+
+- Python 3.9+
+- Node.js 16+
+- PostgreSQL (生产环境) 或 SQLite (开发环境)
+
+### 后端设置
+
+1. **克隆项目**
+```bash
+git clone <repository-url>
+cd poem-names
+```
+
+2. **创建虚拟环境**
+```bash
+python3 -m venv venv
+source venv/bin/activate  # Linux/Mac
+# 或
+venv\Scripts\activate     # Windows
+```
+
+3. **安装依赖**
+```bash
+pip install -r requirements.txt
+```
+
+4. **数据库迁移**
+```bash
+python manage.py makemigrations
+python manage.py migrate
+```
+
+5. **导入数据**
+```bash
+# 导入诗词和姓氏数据
+python manage.py import_data --poetry
+python manage.py import_data --surnames
+python manage.py import_data --words
+```
+
+6. **创建超级用户**
+```bash
+python manage.py createsuperuser
+```
+
+7. **运行后端服务器**
+```bash
+python manage.py runserver
+```
+
+### 前端设置
+
+1. **安装前端依赖**
+```bash
+cd frontend
+npm install
+```
+
+2. **启动前端开发服务器**
+```bash
+npm start
+```
+
+### 使用Docker (可选)
+
+```bash
+# 构建并运行
+docker-compose up --build
+
+# 后台运行
+docker-compose up -d
+```
+
+## 📋 功能特性
+
+### 核心功能
+- ✅ 基于《诗经》和《楚辞》的名字生成
+- ✅ 智能音韵匹配和平仄协调
+- ✅ 性别倾向分析和推荐
+- ✅ 含义标签系统
+- ✅ 用户收藏系统
+
+### 用户系统
+- ✅ JWT Token认证
+- ✅ 用户注册和登录
+- ✅ 个人资料管理
+- ✅ 密码重置功能
+
+### API接口
+- ✅ RESTful API设计
+- ✅ 完整的CRUD操作
+- ✅ 请求分页和过滤
+- ✅ 错误处理和验证
+
+## 🔧 API文档
+
+### 认证接口
+
+#### 用户注册
+```http
+POST /api/users/
+```
+
+#### 用户登录
+```http
+POST /api/auth/token/
+```
+
+#### 刷新Token
+```http
+POST /api/auth/token/refresh/
+```
+
+### 名字生成接口
+
+#### 生成名字
+```http
+POST /api/names/generate/
+Authorization: Bearer {token}
+```
+
+请求示例：
+```json
+{
+  "surname": "王",
+  "gender": "M",
+  "count": 5,
+  "length": 2,
+  "tone_preference": "ping",
+  "meaning_tags": ["勇敢", "智慧"]
+}
+```
+
+#### 搜索名字
+```http
+POST /api/names/search/
+Authorization: Bearer {token}
+```
+
+### 数据接口
+
+#### 获取姓氏列表
+```http
+GET /api/surnames/
+```
+
+#### 获取诗词列表
+```http
+GET /api/poetry/?type=shijing
+```
+
+#### 获取字词列表
+```http
+GET /api/words/?gender=male
+```
+
+## 🗂️ 项目结构
+
+```
+poem-names/
+├── gen_names/              # Django主应用
+│   ├── authentication/     # 认证模块
+│   ├── data_processor.py   # 数据处理
+│   ├── generator.py        # 名字生成器
+│   ├── models.py          # 数据模型
+│   ├── serializers.py     # API序列化器
+│   ├── views.py           # API视图
+│   └── management/        # 管理命令
+├── frontend/              # React前端
+│   ├── src/
+│   │   ├── components/    # 组件
+│   │   ├── pages/         # 页面
+│   │   ├── store/         # Redux状态管理
+│   │   └── App.js         # 主应用组件
+│   └── package.json
+├── data/                  # 数据文件
+│   ├── poetry/            # 诗词数据
+│   └── surnames.txt       # 姓氏数据
+├── requirements.txt       # Python依赖
+├── manage.py             # Django管理脚本
+├── docker-compose.yml    # Docker配置
+└── API.md                # 详细API文档
+```
+
+## 🧪 测试
+
+### 运行单元测试
+```bash
+python manage.py test
+```
+
+### API测试
+```bash
+# 使用curl测试API
+curl -X POST http://localhost:8000/api/generate-name \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+## 🚀 部署
+
+### 生产环境部署
+
+1. **设置环境变量**
+```bash
+export DJANGO_SETTINGS_MODULE=poem_names.settings.production
+export SECRET_KEY=your-secret-key
+export DATABASE_URL=postgresql://user:pass@host:port/db
+```
+
+2. **收集静态文件**
+```bash
+python manage.py collectstatic
+```
+
+3. **使用Gunicorn运行**
+```bash
+gunicorn poem_names.wsgi:application --bind 0.0.0.0:8000
+```
+
+### Docker部署
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+## 🤝 贡献指南
+
+1. Fork项目
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 创建Pull Request
+
+## 📝 许可证
+
+本项目采用MIT许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+
+## 📞 联系方式
+
+- 项目主页: [GitHub Repository]
+- 问题反馈: [Issues]
+- 邮箱: your-email@example.com
+
+---
+
+**享受古典诗词带来的名字灵感！** 🎭📖
 
 ## 需求分析
 

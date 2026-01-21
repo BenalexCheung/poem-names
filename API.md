@@ -1,123 +1,383 @@
-## 接口设计
+# Poem Names API 文档
 
-假设我们需要实现以下几个接口：
+## 概述
 
-- 随机生成男性姓名
-- 随机生成女性姓名
-- 根据关键词搜索姓名
-- 用户注册
-- 用户登录
-- 用户登出
+Poem Names 是一个基于《诗经》和《楚辞》的智能名字生成器API。本API提供了完整的用户认证、名字生成、收藏管理等功能。
 
-对应的接口可以设计如下：
+## 基础信息
 
-1. 随机生成男性姓名
+- **Base URL**: `http://localhost:8000/api/`
+- **认证方式**: JWT (JSON Web Token)
+- **数据格式**: JSON
+- **字符编码**: UTF-8
 
-   ```
-   bashCopy code
-   GET /api/male-names/
-   ```
+## 认证
 
-2. 随机生成女性姓名
+### 用户注册
 
-   ```
-   bashCopy code
-   GET /api/female-names/
-   ```
+```http
+POST /api/users/
+```
 
-3. 根据关键词搜索姓名
+**请求体**:
+```json
+{
+  "username": "testuser",
+  "email": "test@example.com",
+  "password": "password123",
+  "password_confirm": "password123",
+  "phone": "13800138000"
+}
+```
 
-   ```
-   sqlCopy code
-   GET /api/names/search/?keyword={keyword}
-   ```
+**响应**:
+```json
+{
+  "id": 1,
+  "username": "testuser",
+  "email": "test@example.com",
+  "phone": "13800138000",
+  "is_active": true,
+  "date_joined": "2024-01-01T00:00:00Z"
+}
+```
 
-4. 用户注册
+### 用户登录
 
-   ```
-   bashCopy code
-   POST /api/auth/register/
-   ```
+```http
+POST /api/auth/token/
+```
 
-5. 用户登录
+**请求体**:
+```json
+{
+  "username": "testuser",
+  "password": "password123"
+}
+```
 
-   ```
-   bashCopy code
-   POST /api/auth/login/
-   ```
+**响应**:
+```json
+{
+  "refresh": "eyJ0eXAi...",
+  "access": "eyJ0eXAi...",
+  "user": {
+    "id": 1,
+    "username": "testuser",
+    "email": "test@example.com"
+  }
+}
+```
 
-6. 用户登出
+### 刷新Token
 
-   ```
-   bashCopy code
-   POST /api/auth/logout/
-   ```
+```http
+POST /api/auth/token/refresh/
+```
 
-对应的API接口设计可以参考以下代码示例：
+**请求体**:
+```json
+{
+  "refresh": "eyJ0eXAi..."
+}
+```
 
-```python
-pythonCopy code
-# views.py
+**响应**:
+```json
+{
+  "access": "eyJ0eXAi..."
+}
+```
 
-from rest_framework import generics, permissions
-from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from django.contrib.auth import get_user_model
-from django.db.models import Q
+## 名字生成
 
-from .models import Name
-from .serializers import NameSerializer, UserSerializer
+### 生成名字
 
+```http
+POST /api/names/generate/
+Authorization: Bearer {access_token}
+```
 
-class MaleNameList(generics.ListAPIView):
-    queryset = Name.objects.filter(gender='M')
-    serializer_class = NameSerializer
+**请求体**:
+```json
+{
+  "surname": "王",
+  "gender": "M",
+  "count": 5,
+  "length": 2,
+  "tone_preference": "ping",
+  "meaning_tags": ["勇敢", "智慧"]
+}
+```
 
+**参数说明**:
+- `surname`: 姓氏（可选）
+- `gender`: 性别 ("M" 男, "F" 女)
+- `count`: 生成数量 (1-20)
+- `length`: 名字长度 (1-3字)
+- `tone_preference`: 声调偏好 ("ping", "ze", "unknown")
+- `meaning_tags`: 含义标签数组
 
-class FemaleNameList(generics.ListAPIView):
-    queryset = Name.objects.filter(gender='F')
-    serializer_class = NameSerializer
-
-
-class NameSearch(generics.ListAPIView):
-    serializer_class = NameSerializer
-
-    def get_queryset(self):
-        keyword = self.request.query_params.get('keyword', '')
-        queryset = Name.objects.filter(
-            Q(name__icontains=keyword) | Q(meaning__icontains=keyword)
-        )
-        return queryset
-
-
-class UserRegistration(generics.CreateAPIView):
-    queryset = get_user_model().objects.all()
-    serializer_class = UserSerializer
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def user_logout(request):
-    request.user.auth_token.delete()
-    return Response(status=204)
-pythonCopy code
-# urls.py
-
-from django.urls import path
-from rest_framework.authtoken.views import obtain_auth_token
-
-from .views import (MaleNameList, FemaleNameList, NameSearch,
-                    UserRegistration, user_logout)
-
-urlpatterns = [
-    path('male-names/', MaleNameList.as_view(), name='male-names'),
-    path('female-names/', FemaleNameList.as_view(), name='female-names'),
-    path('names/search/', NameSearch.as_view(), name='name-search'),
-    path('auth/register/', UserRegistration.as_view(), name='user-registration'),
-    path('auth/login/', obtain_auth_token, name='user-login'),
-    path('auth/logout/', user_logout, name='user-logout'),
+**响应**:
+```json
+[
+  {
+    "id": 1,
+    "surname": {
+      "id": 1,
+      "name": "王",
+      "pinyin": "wang"
+    },
+    "given_name": "诗韵",
+    "full_name": "王诗韵",
+    "gender": "M",
+    "meaning": "诗意美好",
+    "origin": "源自古典诗词",
+    "tags": ["美好", "诗意"],
+    "is_favorite": false,
+    "created_by": 1,
+    "created_at": "2024-01-01T00:00:00Z"
+  }
 ]
 ```
 
-需要注意的是，在使用JWT Token授权时，需要自定义用户认证类和Token生成方式，具体实现可以参考Django Rest Framework的官方文档。
+### 搜索名字
+
+```http
+POST /api/names/search/
+Authorization: Bearer {access_token}
+```
+
+**请求体**:
+```json
+{
+  "keyword": "诗",
+  "gender": "F",
+  "surname": "李",
+  "tags": ["美好"],
+  "limit": 10
+}
+```
+
+**响应**: 同生成名字响应格式
+
+## 收藏管理
+
+### 获取收藏列表
+
+```http
+GET /api/names/favorites/
+Authorization: Bearer {access_token}
+```
+
+### 收藏/取消收藏名字
+
+```http
+POST /api/names/{id}/favorite/
+Authorization: Bearer {access_token}
+```
+
+## 数据浏览
+
+### 获取姓氏列表
+
+```http
+GET /api/surnames/
+```
+
+**查询参数**:
+- `search`: 搜索关键词
+
+### 获取热门姓氏
+
+```http
+GET /api/surnames/popular/
+```
+
+### 获取诗词列表
+
+```http
+GET /api/poetry/
+```
+
+**查询参数**:
+- `type`: 诗词类型 ("shijing", "chuci")
+- `search`: 搜索关键词
+
+### 获取字词列表
+
+```http
+GET /api/words/
+```
+
+**查询参数**:
+- `gender`: 性别倾向 ("male", "female", "neutral")
+- `search`: 搜索关键词
+
+## 用户管理
+
+### 获取用户资料
+
+```http
+GET /api/auth/profile/
+Authorization: Bearer {access_token}
+```
+
+### 更新用户资料
+
+```http
+PATCH /api/auth/profile/
+Authorization: Bearer {access_token}
+```
+
+**请求体**:
+```json
+{
+  "email": "newemail@example.com",
+  "phone": "13900139000"
+}
+```
+
+### 修改密码
+
+```http
+POST /api/auth/change-password/
+Authorization: Bearer {access_token}
+```
+
+**请求体**:
+```json
+{
+  "old_password": "oldpassword",
+  "new_password": "newpassword123",
+  "new_password_confirm": "newpassword123"
+}
+```
+
+### 密码重置请求
+
+```http
+POST /api/auth/password-reset/
+```
+
+**请求体**:
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+### 密码重置确认
+
+```http
+POST /api/auth/password-reset-confirm/
+```
+
+**请求体**:
+```json
+{
+  "token": "reset_token_from_email",
+  "new_password": "newpassword123",
+  "new_password_confirm": "newpassword123"
+}
+```
+
+## 错误响应
+
+所有API在出错时都会返回适当的HTTP状态码和错误信息：
+
+```json
+{
+  "detail": "错误描述",
+  "code": "error_code"
+}
+```
+
+常见HTTP状态码：
+- `400`: 请求参数错误
+- `401`: 未认证或认证失败
+- `403`: 权限不足
+- `404`: 资源不存在
+- `500`: 服务器内部错误
+
+## SDK 和示例
+
+### Python 示例
+
+```python
+import requests
+
+# 登录获取token
+login_data = {
+    'username': 'testuser',
+    'password': 'password123'
+}
+response = requests.post('http://localhost:8000/api/auth/token/', json=login_data)
+tokens = response.json()
+
+# 使用token生成名字
+headers = {
+    'Authorization': f'Bearer {tokens["access"]}'
+}
+generate_data = {
+    'gender': 'M',
+    'count': 3
+}
+response = requests.post(
+    'http://localhost:8000/api/names/generate/',
+    json=generate_data,
+    headers=headers
+)
+names = response.json()
+```
+
+### JavaScript 示例
+
+```javascript
+// 登录
+const loginData = {
+  username: 'testuser',
+  password: 'password123'
+};
+
+fetch('/api/auth/token/', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify(loginData)
+})
+.then(response => response.json())
+.then(data => {
+  const token = data.access;
+
+  // 生成名字
+  const generateData = {
+    gender: 'F',
+    count: 5
+  };
+
+  return fetch('/api/names/generate/', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(generateData)
+  });
+})
+.then(response => response.json())
+.then(names => {
+  console.log('生成的诗意名字:', names);
+});
+```
+
+## 兼容性说明
+
+为了向后兼容，API保留了以下旧接口：
+
+```http
+POST /api/generate-name
+```
+
+该接口不需要认证，仅用于测试目的。
