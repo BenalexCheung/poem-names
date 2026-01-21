@@ -37,3 +37,35 @@
     transform: rotate(360deg);
   }
 }
+
+/* NameCard 样式 */
+.name-card {
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.name-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15) !important;
+}
+
+.name-text {
+  font-size: 24px;
+  font-weight: bold;
+  background: linear-gradient(45deg, #1890ff, #722ed1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 8px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .name-text {
+    font-size: 20px;
+  }
+
+  .name-card .ant-card-body {
+    padding: 16px;
+  }
+}

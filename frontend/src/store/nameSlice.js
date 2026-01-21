@@ -53,22 +53,41 @@ export const toggleFavorite = createAsyncThunk(
   }
 );
 
-// 获取姓氏列表异步action
+// 获取姓氏列表异步action（支持分页）
 export const getSurnames = createAsyncThunk(
   'names/getSurnames',
-  async (_, { rejectWithValue }) => {
+  async (params = {}, { getState, rejectWithValue }) => {
     try {
-      const response = await axios.get('/surnames/');
-      // 确保返回的是数组格式
+      const { page = 1, pageSize = 20, search = '', append = false } = params;
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        page_size: pageSize.toString(),
+        ...(search && { search })
+      });
+
+      const response = await axios.get(`/surnames/?${queryParams}`);
       const data = response.data;
-      if (Array.isArray(data)) {
-        return data;
-      } else if (data.results && Array.isArray(data.results)) {
-        // 处理分页响应
-        return data.results;
+
+      if (data.results && Array.isArray(data.results)) {
+        return {
+          surnames: data.results,
+          pagination: data.pagination,
+          append
+        };
+      } else if (Array.isArray(data)) {
+        // 向后兼容旧格式
+        return {
+          surnames: data,
+          pagination: null,
+          append
+        };
       } else {
         console.warn('Unexpected surnames data format:', data);
-        return [];
+        return {
+          surnames: [],
+          pagination: null,
+          append
+        };
       }
     } catch (error) {
       return rejectWithValue(error.response?.data || '获取姓氏失败');
@@ -83,6 +102,10 @@ const nameSlice = createSlice({
     searchResults: [],
     favorites: [],
     surnames: [],
+    surnamesPagination: null,
+    surnamesHasNext: true,
+    surnamesLoading: false,
+    surnamesError: null,
     loading: false,
     error: null,
   },
@@ -150,16 +173,42 @@ const nameSlice = createSlice({
         state.generatedNames = updateNamesInList(state.generatedNames);
         state.searchResults = updateNamesInList(state.searchResults);
       })
+      .addCase(getSurnames.pending, (state) => {
+        state.surnamesLoading = true;
+        state.surnamesError = null;
+      })
       .addCase(getSurnames.fulfilled, (state, action) => {
-        state.surnames = action.payload;
+        state.surnamesLoading = false;
+        const { surnames, pagination, append } = action.payload;
+
+        if (Array.isArray(surnames)) {
+          if (append) {
+            // 追加数据（用于滚动加载）
+            state.surnames = [...state.surnames, ...surnames];
+          } else {
+            // 替换数据（用于初始加载或搜索）
+            state.surnames = surnames;
+          }
+
+          if (pagination) {
+            state.surnamesPagination = pagination;
+            state.surnamesHasNext = pagination.has_next;
+          } else {
+            state.surnamesHasNext = false;
+          }
+        } else {
+          console.warn('Unexpected surnames data in fulfilled:', surnames);
+          state.surnames = [];
+          state.surnamesHasNext = false;
+        }
       })
       .addCase(getSurnames.rejected, (state, action) => {
-        // 确保error是字符串
+        state.surnamesLoading = false;
         const error = action.payload;
         if (typeof error === 'object' && error !== null) {
-          state.error = error.detail || error.message || '获取姓氏失败';
+          state.surnamesError = error.detail || error.message || '获取姓氏失败';
         } else {
-          state.error = error || '获取姓氏失败';
+          state.surnamesError = error || '获取姓氏失败';
         }
       });
   },

@@ -296,13 +296,7 @@ docker-compose -f docker-compose.prod.yml up -d
 
 ## 📝 许可证
 
-本项目采用MIT许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
-
-## 📞 联系方式
-
-- 项目主页: [GitHub Repository]
-- 问题反馈: [Issues]
-- 邮箱: your-email@example.com
+本项目采用GPL-3.0许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
 ---
 

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   Form,
@@ -23,9 +23,14 @@ const { Option } = Select;
 const NameGenerator = () => {
   const [form] = Form.useForm();
   const dispatch = useDispatch();
+  const [surnameSearch, setSurnameSearch] = useState('');
+  const [surnamePage, setSurnamePage] = useState(1);
+
   const {
     generatedNames,
     surnames,
+    surnamesLoading,
+    surnamesHasNext,
     loading,
     error
   } = useSelector(state => state.names);
@@ -33,11 +38,41 @@ const NameGenerator = () => {
 
   useEffect(() => {
     // 获取姓氏列表
-    dispatch(getSurnames());
+    dispatch(getSurnames({ page: 1, pageSize: 20 }));
 
     // 清理之前的生成结果
     dispatch(clearGeneratedNames());
   }, [dispatch]);
+
+  // 姓氏搜索处理
+  const handleSurnameSearch = useCallback((value) => {
+    setSurnameSearch(value);
+    setSurnamePage(1);
+    dispatch(getSurnames({
+      page: 1,
+      pageSize: 20,
+      search: value,
+      append: false
+    }));
+  }, [dispatch]);
+
+  // 姓氏滚动加载处理
+  const handleSurnameScroll = useCallback((event) => {
+    const { target } = event;
+    if (target.scrollTop + target.offsetHeight === target.scrollHeight) {
+      // 滚动到底部，加载更多数据
+      if (surnamesHasNext && !surnamesLoading) {
+        const nextPage = surnamePage + 1;
+        setSurnamePage(nextPage);
+        dispatch(getSurnames({
+          page: nextPage,
+          pageSize: 20,
+          search: surnameSearch,
+          append: true
+        }));
+      }
+    }
+  }, [surnamesHasNext, surnamesLoading, surnamePage, surnameSearch, dispatch]);
 
   // 添加调试信息
   useEffect(() => {
@@ -124,6 +159,20 @@ const NameGenerator = () => {
                   placeholder={Array.isArray(surnames) ? "选择姓氏" : "姓氏加载中..."}
                   showSearch
                   disabled={!Array.isArray(surnames) || surnames.length === 0}
+                  loading={surnamesLoading}
+                  onSearch={handleSurnameSearch}
+                  onPopupScroll={handleSurnameScroll}
+                  filterOption={false} // 禁用前端过滤，使用后端搜索
+                  dropdownRender={menu => (
+                    <>
+                      {menu}
+                      {surnamesLoading && surnamesHasNext && (
+                        <div style={{ padding: '8px', textAlign: 'center' }}>
+                          <Spin size="small" />
+                        </div>
+                      )}
+                    </>
+                  )}
                 >
                   {Array.isArray(surnames) && surnames.map(surname => (
                     <Option key={surname.id} value={surname.name}>

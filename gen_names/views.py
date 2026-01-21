@@ -67,14 +67,48 @@ class UserViewSet(viewsets.ModelViewSet):
 
 class SurnameViewSet(viewsets.ReadOnlyModelViewSet):
     """姓氏视图集"""
-    queryset = Surname.objects.all()
+    queryset = Surname.objects.all().order_by('-frequency')
     serializer_class = SurnameSerializer
     permission_classes = [AllowAny]
+    pagination_class = None  # 暂时禁用分页，使用自定义分页
+
+    def list(self, request, *args, **kwargs):
+        """获取姓氏列表，支持分页加载"""
+        # 获取查询参数
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
+        search = request.query_params.get('search', '')
+
+        # 构建查询
+        queryset = self.get_queryset()
+
+        # 搜索过滤
+        if search:
+            queryset = queryset.filter(name__icontains=search)
+
+        # 分页
+        start = (page - 1) * page_size
+        end = start + page_size
+        total_count = queryset.count()
+
+        surnames = queryset[start:end]
+        serializer = self.get_serializer(surnames, many=True)
+
+        return Response({
+            'results': serializer.data,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_count': total_count,
+                'has_next': end < total_count,
+                'has_previous': page > 1
+            }
+        })
 
     @action(detail=False, methods=['get'])
     def popular(self, request):
-        """获取热门姓氏"""
-        surnames = self.get_queryset().order_by('-frequency')[:20]
+        """获取热门姓氏（向后兼容）"""
+        surnames = self.get_queryset()[:20]
         serializer = self.get_serializer(surnames, many=True)
         return Response(serializer.data)
 
@@ -165,6 +199,7 @@ class NameViewSet(viewsets.ModelViewSet):
                 # 创建Name对象时，需要正确处理surname字段
                 name_dict = name_data.copy()
                 # surname已经是Surname对象，不需要额外处理
+
                 name_obj = Name.objects.create(
                     created_by=request.user,
                     surname=name_dict['surname'],

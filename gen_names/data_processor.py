@@ -184,37 +184,85 @@ class PoetryDataProcessor:
         # 获取五行属性
         wuxing = self.wuxing_dict.get(character, 'unknown')
 
-        # 根据字词内容判断性别倾向和含义
+        # 根据字词内容判断性别倾向和含义 - 增强版性别区分
         gender_preference = 'neutral'
+        gender_strength = 'weak'  # 性别倾向强度：weak, medium, strong
         meaning = ""
         tags = []
 
-        # 简单的规则判断
-        if character in ['女', '娘', '姬', '妃', '嫔', '妇', '妻', '母', '妹', '姑', '姨']:
-            gender_preference = 'female'
-            meaning = "女性相关"
-            tags = ['女性', '温柔']
-        elif character in ['男', '郎', '夫', '兄', '父', '叔', '伯', '翁', '君', '王', '帝']:
+        # 强性别倾向字词
+        strong_male_chars = [
+            '男', '郎', '夫', '兄', '父', '叔', '伯', '翁', '君', '王', '帝', '皇', '侯', '公', '卿',
+            '勇', '强', '刚', '毅', '坚', '猛', '武', '英', '豪', '杰', '雄', '虎', '龙', '豹', '熊',
+            '威', '霸', '霸', '锋', '锐', '剑', '刀', '枪', '戟', '矛', '盾', '甲', '胄', '盔', '铠',
+            '战', '斗', '征', '伐', '攻', '守', '胜', '败', '敌', '阵', '营', '军', '师', '将', '兵',
+            '力', '劲', '壮', '硕', '伟', '高', '大', '强', '健', '康', '盛', '昌', '隆', '兴', '旺'
+        ]
+
+        strong_female_chars = [
+            '女', '娘', '姬', '妃', '嫔', '妇', '妻', '母', '妹', '姑', '姨', '姥', '奶', '婆', '妇',
+            '柔', '弱', '婉', '约', '温', '和', '静', '淑', '贤', '惠', '丽', '艳', '媚', '娇', '嫩',
+            '美', '秀', '华', '芳', '香', '馨', '兰', '菊', '梅', '莲', '荷', '花', '草', '叶', '枝',
+            '丝', '绸', '缎', '锦', '绣', '织', '缝', '绣', '针', '线', '缕', '丝', '弦', '琴', '瑟',
+            '舞', '歌', '唱', '吟', '咏', '诗', '词', '赋', '文', '墨', '笔', '砚', '纸', '书', '卷'
+        ]
+
+        # 中等性别倾向字词（可根据上下文调整）
+        medium_male_chars = [
+            '智', '慧', '聪', '明', '贤', '才', '能', '德', '善', '仁', '义', '礼', '忠', '信', '孝',
+            '志', '心', '意', '思', '想', '谋', '策', '计', '划', '略', '术', '法', '道', '理', '则',
+            '天', '地', '山', '河', '海', '江', '湖', '泉', '石', '木', '林', '森', '野', '原', '田',
+            '力', '气', '血', '骨', '筋', '脉', '身', '体', '躯', '肢', '臂', '腿', '脚', '手', '指'
+        ]
+
+        medium_female_chars = [
+            '爱', '情', '意', '心', '思', '念', '想', '忆', '怀', '愁', '怨', '悲', '喜', '乐', '欢',
+            '泪', '珠', '玉', '金', '银', '宝', '珍', '贵', '值', '价', '财', '富', '贵', '荣', '华',
+            '月', '星', '云', '霞', '彩', '光', '明', '亮', '洁', '净', '清', '纯', '真', '善', '美',
+            '水', '泉', '溪', '流', '河', '湖', '海', '洋', '波', '浪', '潮', '汐', '湾', '港', '岛'
+        ]
+
+        # 判断性别倾向
+        if character in strong_male_chars:
             gender_preference = 'male'
-            meaning = "男性相关"
-            tags = ['男性', '刚强']
+            gender_strength = 'strong'
+            meaning = "阳刚、力量"
+            tags = ['男性', '刚强', '力量']
+        elif character in strong_female_chars:
+            gender_preference = 'female'
+            gender_strength = 'strong'
+            meaning = "阴柔、优雅"
+            tags = ['女性', '温柔', '优雅']
+        elif character in medium_male_chars:
+            gender_preference = 'male'
+            gender_strength = 'medium'
+            meaning = "智慧、理性"
+            tags = ['男性', '智慧', '理性']
+        elif character in medium_female_chars:
+            gender_preference = 'female'
+            gender_strength = 'medium'
+            meaning = "情感、细腻"
+            tags = ['女性', '情感', '细腻']
         elif character in ['美', '好', '丽', '秀', '艳', '华', '芳', '香', '洁', '纯']:
+            # 中性美好字词，但更偏向女性
+            gender_preference = 'female'
+            gender_strength = 'weak'
             meaning = "美好、美丽"
             tags = ['美好', '美丽', '优雅']
-        elif character in ['智', '慧', '聪', '明', '贤', '才', '能', '德', '善', '仁']:
-            meaning = "智慧、贤能"
-            tags = ['智慧', '贤能', '优秀']
-        elif character in ['勇', '强', '刚', '毅', '坚', '猛', '武', '英', '豪', '杰']:
-            gender_preference = 'male'
-            meaning = "勇敢、刚强"
-            tags = ['勇敢', '刚强', '坚毅']
-        elif character in ['柔', '弱', '婉', '约', '温', '和', '静', '淑', '贤', '惠']:
-            gender_preference = 'female'
-            meaning = "温柔、贤惠"
-            tags = ['温柔', '贤惠', '文静']
         else:
+            # 默认中性，但根据五行和语境进行弱倾向判断
             meaning = "诗词用字"
             tags = ['古典', '诗意']
+
+            # 根据五行进行弱性别倾向判断
+            if wuxing == 'huo':  # 火性偏阳刚
+                gender_preference = 'male'
+                gender_strength = 'weak'
+                tags.append('阳刚')
+            elif wuxing == 'shui':  # 水性偏阴柔
+                gender_preference = 'female'
+                gender_strength = 'weak'
+                tags.append('阴柔')
 
         # 添加五行相关标签
         if wuxing != 'unknown':
@@ -224,6 +272,7 @@ class PoetryDataProcessor:
             'pinyin': pinyin,
             'wuxing': wuxing,
             'gender_preference': gender_preference,
+            'gender_strength': gender_strength,
             'meaning': meaning,
             'tags': tags
         }
@@ -234,8 +283,8 @@ class PoetryDataProcessor:
 
         # 定义数据源映射
         data_sources = {
-            'shijing_sample.txt': 'shijing',
-            'chuci_sample.txt': 'chuci',
+            'shijing.txt': 'shijing',
+            'chuci.txt': 'chuci',
             'classics/lunyu.txt': 'classics',
             'classics/mengzi.txt': 'classics',
             'tang/tang_shi.txt': 'tang',

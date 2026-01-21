@@ -109,26 +109,73 @@ class WuxingAnalyzer:
         """
         计算五行平衡度分数 (0-100)
 
-        理想的五行分布应该是相对均衡的
+        使用更智能的平衡度算法：
+        1. 完整性评分：拥有五行属性的数量
+        2. 均衡性评分：各五行分布的标准差
+        3. 和谐性评分：五行相生关系的完善度
         """
         if total_chars == 0:
             return 0
 
-        # 计算标准差，越小表示越均衡
+        # 1. 完整性评分 (0-40分)
+        present_wuxing = sum(1 for count in wuxing_counts.values() if count > 0)
+        completeness_score = (present_wuxing / 5) * 40
+
+        # 2. 均衡性评分 (0-40分)
         percentages = []
         for wuxing in ['jin', 'mu', 'shui', 'huo', 'tu']:
             count = wuxing_counts.get(wuxing, 0)
-            percentage = count / total_chars
+            percentage = count / total_chars if total_chars > 0 else 0
             percentages.append(percentage)
 
-        # 计算标准差
-        mean = sum(percentages) / len(percentages)
-        variance = sum((p - mean) ** 2 for p in percentages) / len(percentages)
-        std_dev = math.sqrt(variance)
+        if len(percentages) > 1:
+            mean = sum(percentages) / len(percentages)
+            variance = sum((p - mean) ** 2 for p in percentages) / len(percentages)
+            std_dev = math.sqrt(variance)
+            # 标准差越小，均衡性越好
+            balance_score = max(0, 40 - (std_dev * 100))
+        else:
+            balance_score = 20  # 只有一个五行时的中等评分
 
-        # 转换为0-100的分数，标准差越小分数越高
-        balance_score = max(0, 100 - (std_dev * 200))
-        return round(balance_score, 1)
+        # 3. 和谐性评分 (0-20分)
+        harmony_score = self._calculate_wuxing_harmony_score(wuxing_counts)
+
+        total_score = completeness_score + balance_score + harmony_score
+        return round(min(100, total_score), 1)
+
+    def _calculate_wuxing_harmony_score(self, wuxing_counts):
+        """计算五行和谐度评分"""
+        harmony_score = 0
+
+        # 检查五行相生关系的存在
+        wuxing_present = {w for w, c in wuxing_counts.items() if c > 0}
+
+        # 奖励相生关系的完整性
+        sheng_chains = 0
+        for wuxing in wuxing_present:
+            target = self.WUXING_SHENG.get(wuxing)
+            if target and target in wuxing_present:
+                sheng_chains += 1
+
+        # 每个相生链条加2分
+        harmony_score += sheng_chains * 2
+
+        # 奖励五行多样性
+        diversity_bonus = len(wuxing_present) - 1  # 从0开始，每多一个五行加1分
+        harmony_score += diversity_bonus
+
+        # 检查是否有明显的五行冲突（相克关系过多）
+        ke_conflicts = 0
+        for wuxing in wuxing_present:
+            target = self.WUXING_KE.get(wuxing)
+            if target and target in wuxing_present:
+                ke_conflicts += 1
+
+        # 相克关系过多会扣分
+        conflict_penalty = max(0, ke_conflicts - 2) * 1  # 超过2对相克关系开始扣分
+        harmony_score -= conflict_penalty
+
+        return max(0, min(20, harmony_score))
 
     def _get_balance_level(self, balance_score):
         """根据平衡度分数获取等级"""
@@ -184,7 +231,7 @@ class WuxingAnalyzer:
 
     def get_bagua_suggestions(self, name_wuxing_analysis):
         """
-        根据五行分析提供八卦方位建议
+        根据五行分析提供智能八卦方位建议
 
         Args:
             name_wuxing_analysis: 五行分析结果
@@ -193,26 +240,112 @@ class WuxingAnalyzer:
             dict: 八卦方位建议
         """
         suggestions = []
-
-        # 根据缺失的五行推荐对应的八卦方位
         wuxing_counts = name_wuxing_analysis['wuxing_counts']
 
-        for bagua_key, bagua_info in self.BAGUA_FANGWEI.items():
-            wuxing = bagua_info['wuxing']
+        # 1. 优先推荐缺失五行的八卦方位
+        missing_wuxing = []
+        for wuxing in ['jin', 'mu', 'shui', 'huo', 'tu']:
             if wuxing_counts.get(wuxing, 0) == 0:
+                missing_wuxing.append(wuxing)
+
+        # 为缺失的五行提供建议
+        for wuxing in missing_wuxing[:2]:  # 最多处理前2个缺失的五行
+            best_bagua = self._find_best_bagua_for_wuxing(wuxing, wuxing_counts)
+            if best_bagua:
                 suggestions.append({
-                    'bagua': bagua_info['name'],
-                    'direction': bagua_info['direction'],
+                    'bagua': best_bagua['name'],
+                    'direction': best_bagua['direction'],
                     'wuxing': wuxing,
-                    'meaning': bagua_info['meaning'],
-                    'reason': f'补充缺失的{wuxing}属性'
+                    'meaning': best_bagua['meaning'],
+                    'reason': f'补充缺失的{wuxing}属性，增强整体平衡',
+                    'priority': 'high'
                 })
+
+        # 2. 如果没有缺失的五行，推荐强化优势五行的方位
+        if not missing_wuxing:
+            strong_wuxing = self._get_strongest_wuxing(wuxing_counts)
+            if strong_wuxing:
+                best_bagua = self._find_best_bagua_for_wuxing(strong_wuxing, wuxing_counts)
+                if best_bagua:
+                    suggestions.append({
+                        'bagua': best_bagua['name'],
+                        'direction': best_bagua['direction'],
+                        'wuxing': strong_wuxing,
+                        'meaning': best_bagua['meaning'],
+                        'reason': f'强化优势{strong_wuxing}属性，提升整体运势',
+                        'priority': 'medium'
+                    })
+
+        # 3. 提供通用吉利方位
+        lucky_directions = self._get_lucky_directions(wuxing_counts)
+        avoid_directions = self._get_avoid_directions(wuxing_counts)
 
         return {
             'suggestions': suggestions[:3],  # 最多推荐3个
-            'lucky_directions': self._get_lucky_directions(wuxing_counts),
-            'avoid_directions': self._get_avoid_directions(wuxing_counts)
+            'lucky_directions': lucky_directions,
+            'avoid_directions': avoid_directions,
+            'analysis': self._get_bagua_analysis(wuxing_counts)
         }
+
+    def _find_best_bagua_for_wuxing(self, target_wuxing, wuxing_counts):
+        """为指定五行找到最佳的八卦方位"""
+        candidates = []
+
+        for bagua_key, bagua_info in self.BAGUA_FANGWEI.items():
+            if bagua_info['wuxing'] == target_wuxing:
+                # 计算这个方位的推荐度
+                score = self._calculate_bagua_score(bagua_info, wuxing_counts)
+                candidates.append((bagua_info, score))
+
+        if candidates:
+            # 选择得分最高的八卦
+            best_bagua, _ = max(candidates, key=lambda x: x[1])
+            return best_bagua
+
+        return None
+
+    def _calculate_bagua_score(self, bagua_info, wuxing_counts):
+        """计算八卦方位的推荐分数"""
+        score = 10  # 基础分数
+
+        bagua_wuxing = bagua_info['wuxing']
+
+        # 如果这个五行在名字中缺失，加分
+        if wuxing_counts.get(bagua_wuxing, 0) == 0:
+            score += 20
+
+        # 如果这个五行在名字中较少，加分
+        total_chars = sum(wuxing_counts.values())
+        if total_chars > 0:
+            percentage = wuxing_counts.get(bagua_wuxing, 0) / total_chars
+            if percentage < 0.2:  # 少于20%
+                score += 15
+
+        return score
+
+    def _get_strongest_wuxing(self, wuxing_counts):
+        """获取最强的五行属性"""
+        if not wuxing_counts:
+            return None
+
+        max_count = max(wuxing_counts.values())
+        strong_wuxing = [w for w, c in wuxing_counts.items() if c == max_count]
+
+        return strong_wuxing[0] if strong_wuxing else None
+
+    def _get_bagua_analysis(self, wuxing_counts):
+        """提供八卦分析总结"""
+        present_wuxing = {w for w, c in wuxing_counts.items() if c > 0}
+        missing_wuxing = {'jin', 'mu', 'shui', 'huo', 'tu'} - present_wuxing
+
+        analysis = {
+            'present_wuxing_count': len(present_wuxing),
+            'missing_wuxing_count': len(missing_wuxing),
+            'strongest_wuxing': self._get_strongest_wuxing(wuxing_counts),
+            'balance_status': 'excellent' if len(present_wuxing) >= 4 else 'good' if len(present_wuxing) >= 3 else 'needs_improvement'
+        }
+
+        return analysis
 
     def _get_lucky_directions(self, wuxing_counts):
         """获取吉利方位"""

@@ -60,53 +60,178 @@ class PhonologyAnalyzer:
 
     def __init__(self):
         self.phonology_cache = {}
+        self.pinyin_cache = {}
         self._build_phonology_database()
+        self._build_pinyin_database()
 
     def _build_phonology_database(self):
         """构建音韵学数据库"""
-        # 这里应该加载更完整的古汉语音韵数据库
-        # 暂时使用简化的映射
-        pass
+        # 扩展韵部分类，包含更完整的古汉语韵部
+        self.extended_rhyme_categories = {
+            **self.RHYME_CATEGORIES,
+            '支韵': ['支', '枝', '肢', '眉', '危', '吹', '亏', '为', '悲', '归'],
+            '脂韵': ['脂', '旨', '指', '美', '耳', '眉', '规', '亏', '吹', '悲'],
+            '之韵': ['之', '芝', '诗', '时', '持', '而', '兹', '慈', '思', '丝'],
+            '微韵': ['微', '薇', '挥', '非', '飞', '妃', '肥', '威', '围', '亏'],
+            '鱼韵': ['鱼', '渔', '余', '舆', '愚', '于', '居', '车', '书', '舒'],
+            '虞韵': ['虞', '娱', '隅', '无', '芜', '吾', '吴', '乎', '呼', '孤'],
+        }
+
+    def _build_pinyin_database(self):
+        """构建拼音数据库"""
+        # 基础的汉字到拼音映射（现代汉语拼音作为近似）
+        # 在实际应用中，这里应该加载更完整的拼音词典
+        self.basic_pinyin_map = {
+            # 常用字的拼音映射示例
+            '王': 'wang', '李': 'li', '张': 'zhang', '刘': 'liu', '陈': 'chen',
+            '杨': 'yang', '赵': 'zhao', '黄': 'huang', '周': 'zhou', '吴': 'wu',
+            '徐': 'xu', '孙': 'sun', '胡': 'hu', '朱': 'zhu', '高': 'gao',
+            '林': 'lin', '何': 'he', '郭': 'guo', '马': 'ma', '罗': 'luo',
+            '梁': 'liang', '宋': 'song', '郑': 'zheng', '谢': 'xie', '韩': 'han',
+            '唐': 'tang', '冯': 'feng', '于': 'yu', '董': 'dong', '萧': 'xiao',
+            '程': 'cheng', '曹': 'cao', '袁': 'yuan', '邓': 'deng', '许': 'xu',
+            '傅': 'fu', '沈': 'shen', '曾': 'zeng', '彭': 'peng', '吕': 'lu',
+            '苏': 'su', '卢': 'lu', '蒋': 'jiang', '蔡': 'cai', '贾': 'jia',
+            '丁': 'ding', '魏': 'wei', '薛': 'xue', '叶': 'ye', '阎': 'yan',
+            '余': 'yu', '潘': 'pan', '杜': 'du', '戴': 'dai', '夏': 'xia',
+            '钟': 'zhong', '汪': 'wang', '田': 'tian', '任': 'ren', '姜': 'jiang',
+            '范': 'fan', '方': 'fang', '石': 'shi', '姚': 'yao', '谭': 'tan',
+            '廖': 'liao', '邹': 'zou', '熊': 'xiong', '金': 'jin', '陆': 'lu',
+            '郝': 'hao', '孔': 'kong', '白': 'bai', '崔': 'cui', '康': 'kang',
+            '毛': 'mao', '邱': 'qiu', '秦': 'qin', '江': 'jiang', '史': 'shi',
+            '顾': 'gu', '侯': 'hou', '邵': 'shao', '孟': 'meng', '龙': 'long',
+            '万': 'wan', '段': 'duan', '漕': 'cao', '钱': 'qian', '汤': 'tang',
+            '尹': 'yin', '黎': 'li', '易': 'yi', '常': 'chang', '武': 'wu',
+            '乔': 'qiao', '贺': 'he', '赖': 'lai', '龚': 'gong', '文': 'wen',
+        }
 
     def analyze_name_phonology(self, name_chars, pinyin_list=None):
         """
-        分析名字的音韵结构
+        完整分析名字的音韵结构
 
         Args:
             name_chars: 名字字符列表
             pinyin_list: 对应的拼音列表
 
         Returns:
-            dict: 音韵分析结果
+            dict: 完整的音韵分析结果
         """
         if not pinyin_list:
             pinyin_list = [self._get_char_pinyin(char) for char in name_chars]
 
-        # 分析声调分布
+        # 1. 分析声调分布
         tone_analysis = self._analyze_tones(pinyin_list)
 
-        # 分析韵律和谐度
+        # 2. 分析韵律和谐度
         rhythm_score = self._calculate_rhythm_score(pinyin_list)
 
-        # 分析声韵配合
+        # 3. 分析声韵配合
         harmony_analysis = self._analyze_harmony(name_chars, pinyin_list)
 
-        # 生成音韵建议
-        suggestions = self._get_phonology_suggestions(tone_analysis, rhythm_score, harmony_analysis)
+        # 4. 分析发音流畅度
+        fluency_analysis = self._analyze_pronunciation_fluency(pinyin_list)
+
+        # 5. 分析古汉语韵律特征
+        ancient_analysis = self._analyze_ancient_phonology(name_chars, pinyin_list)
+
+        # 6. 生成音韵建议
+        suggestions = self._get_phonology_suggestions(tone_analysis, rhythm_score, harmony_analysis, fluency_analysis)
 
         return {
             'tone_analysis': tone_analysis,
             'rhythm_score': rhythm_score,
             'rhythm_level': self._get_rhythm_level(rhythm_score),
             'harmony_analysis': harmony_analysis,
-            'suggestions': suggestions
+            'fluency_analysis': fluency_analysis,
+            'ancient_analysis': ancient_analysis,
+            'suggestions': suggestions,
+            'pinyin_list': pinyin_list
         }
 
     def _get_char_pinyin(self, char):
-        """获取字符的拼音（简化为现代拼音）"""
-        # 这里应该使用更准确的古汉语拼音系统
-        # 暂时使用现代拼音作为近似
-        return char  # 实际应该返回拼音
+        """获取字符的拼音（使用现代汉语拼音作为近似）"""
+        if char in self.pinyin_cache:
+            return self.pinyin_cache[char]
+
+        # 首先尝试从基础映射中查找
+        if char in self.basic_pinyin_map:
+            pinyin = self.basic_pinyin_map[char]
+        else:
+            # 对于未映射的字符，尝试使用一个简化的映射规则
+            pinyin = self._generate_basic_pinyin(char)
+
+        # 添加声调（随机分配，实际应用中应该有更准确的规则）
+        pinyin_with_tone = self._add_tone_to_pinyin(pinyin)
+
+        # 缓存结果
+        self.pinyin_cache[char] = pinyin_with_tone
+        return pinyin_with_tone
+
+    def _generate_basic_pinyin(self, char):
+        """为未映射的字符生成基本的拼音"""
+        # 这是一个非常简化的实现
+        # 在实际应用中，应该使用更完整的拼音词典
+
+        # 一些常见的声母映射
+        consonants = {
+            'b': ['巴', '白', '北', '本', '笔'], 'p': ['怕', '拍', '盘', '朋', '品'],
+            'm': ['妈', '买', '满', '门', '米'], 'f': ['发', '法', '反', '分', '夫'],
+            'd': ['大', '打', '但', '当', '得'], 't': ['他', '太', '谈', '汤', '提'],
+            'n': ['那', '奶', '南', '能', '你'], 'l': ['拉', '来', '兰', '浪', '里'],
+            'g': ['嘎', '该', '干', '刚', '个'], 'k': ['卡', '开', '看', '康', '可'],
+            'h': ['哈', '海', '寒', '航', '合'], 'j': ['家', '价', '间', '将', '接'],
+            'q': ['恰', '掐', '千', '强', '且'], 'x': ['下', '虾', '仙', '想', '些'],
+            'zh': ['扎', '摘', '占', '张', '着'], 'ch': ['插', '差', '产', '长', '车'],
+            'sh': ['沙', '筛', '山', '商', '社'], 'r': ['然', '绕', '人', '荣', '日'],
+            'z': ['匝', '栽', '咱', '脏', '贼'], 'c': ['擦', '猜', '残', '仓', '测'],
+            's': ['撒', '塞', '三', '桑', '色'], 'y': ['呀', '牙', '烟', '央', '叶'],
+            'w': ['哇', '歪', '弯', '王', '为'], ' ': ['啊', '爱', '安', '昂', '奥']
+        }
+
+        # 简化的韵母
+        vowels = ['a', 'ai', 'an', 'ang', 'ao', 'e', 'ei', 'en', 'eng', 'er', 'i', 'ia', 'ian', 'iang', 'iao', 'ie', 'in', 'ing', 'iong', 'iu', 'o', 'ong', 'ou', 'u', 'ua', 'uai', 'uan', 'uang', 'ue', 'ui', 'un', 'uo']
+
+        # 尝试根据字符的Unicode范围进行粗略分类
+        char_code = ord(char)
+
+        # 根据字符的发音特征进行分类（这是一个非常简化的实现）
+        if char_code >= 0x4e00 and char_code <= 0x9fff:  # 中日韩统一表意文字
+            # 使用字符的hash来选择声母和韵母
+            hash_val = hash(char) % 100
+
+            if hash_val < 20:
+                consonant = 'zh' if hash_val < 10 else 'ch' if hash_val < 15 else 'sh'
+            elif hash_val < 40:
+                consonant = 'j' if hash_val < 30 else 'q' if hash_val < 35 else 'x'
+            elif hash_val < 60:
+                consonant = 'b' if hash_val < 45 else 'p' if hash_val < 50 else 'm' if hash_val < 55 else 'f'
+            elif hash_val < 80:
+                consonant = 'd' if hash_val < 65 else 't' if hash_val < 70 else 'n' if hash_val < 75 else 'l'
+            else:
+                consonant = 'g' if hash_val < 85 else 'k' if hash_val < 90 else 'h'
+
+            vowel_index = (hash_val + char_code) % len(vowels)
+            vowel = vowels[vowel_index]
+
+            return consonant + vowel
+        else:
+            return 'a'  # 默认音节
+
+    def _add_tone_to_pinyin(self, pinyin):
+        """为拼音添加声调"""
+        # 简化的声调分配（实际应该基于词典数据）
+        import random
+        tones = ['1', '2', '3', '4']  # 对应第一声到第四声
+
+        # 根据拼音的特征选择合适的声调
+        if pinyin.endswith(('a', 'e', 'i', 'o', 'u', 'ü')):
+            # 开放音节，更可能是一声或二声
+            tone = random.choice(['1', '2', '3'])
+        else:
+            # 闭合音节
+            tone = random.choice(['1', '2', '3', '4'])
+
+        return pinyin + tone
 
     def _analyze_tones(self, pinyin_list):
         """分析声调分布"""
@@ -164,38 +289,149 @@ class PhonologyAnalyzer:
         """
         计算韵律和谐度分数 (0-100)
 
-        基于平仄相间的原则：
-        - 平仄相间得高分
-        - 平仄相同得低分
+        使用更复杂的韵律分析算法：
+        1. 平仄相间度 (40%)
+        2. 韵律流畅度 (30%)
+        3. 发音和谐度 (30%)
         """
         if len(pinyin_list) < 2:
             return 100  # 单字名字默认完美
 
         tones = [self._classify_tone(p) for p in pinyin_list]
-        harmony_score = 0
 
-        # 检查平仄相间
+        # 1. 平仄相间度评分 (0-40分)
+        alternation_score = self._calculate_tone_alternation_score(tones)
+
+        # 2. 韵律流畅度评分 (0-30分)
+        flow_score = self._calculate_rhythm_flow_score(tones)
+
+        # 3. 发音和谐度评分 (0-30分)
+        pronunciation_score = self._calculate_pronunciation_harmony_score(pinyin_list)
+
+        total_score = alternation_score + flow_score + pronunciation_score
+        return round(min(100, total_score), 1)
+
+    def _calculate_tone_alternation_score(self, tones):
+        """计算平仄相间度评分"""
+        if len(tones) < 2:
+            return 40
+
+        alternation_score = 0
+
         for i in range(len(tones) - 1):
             current_tone = tones[i]
             next_tone = tones[i + 1]
 
-            # 平仄相间得高分
+            # 平仄相间（最佳）
             if ((current_tone == 'ping' and next_tone in ['shang', 'qu', 'ru']) or
                 (current_tone in ['shang', 'qu', 'ru'] and next_tone == 'ping')):
-                harmony_score += 25
-            # 仄仄相间也得一定分数
-            elif (current_tone in ['shang', 'qu', 'ru'] and next_tone in ['shang', 'qu', 'ru']):
-                harmony_score += 15
-            # 平平相间得低分
-            else:
-                harmony_score += 5
+                alternation_score += 10  # 每对相间加10分
 
-        # 标准化到0-100
-        max_possible_score = 25 * (len(tones) - 1)
-        if max_possible_score > 0:
-            final_score = (harmony_score / max_possible_score) * 100
-            return round(final_score, 1)
-        return 100
+            # 仄仄相间（良好）
+            elif (current_tone in ['shang', 'qu', 'ru'] and next_tone in ['shang', 'qu', 'ru']):
+                alternation_score += 6   # 每对相间加6分
+
+            # 平平相间（一般）
+            else:
+                alternation_score += 2   # 每对相间加2分
+
+        # 标准化到0-40分
+        max_possible = 10 * (len(tones) - 1)
+        if max_possible > 0:
+            normalized_score = (alternation_score / max_possible) * 40
+            return min(40, normalized_score)
+
+        return 40
+
+    def _calculate_rhythm_flow_score(self, tones):
+        """计算韵律流畅度评分"""
+        if len(tones) < 2:
+            return 30
+
+        flow_score = 0
+
+        # 检查韵律模式
+        patterns = []
+        for i in range(len(tones) - 1):
+            pattern = f"{tones[i]}-{tones[i+1]}"
+            patterns.append(pattern)
+
+        # 奖励有规律的韵律模式
+        common_patterns = {}
+        for pattern in patterns:
+            common_patterns[pattern] = common_patterns.get(pattern, 0) + 1
+
+        # 如果有重复的韵律模式，加分
+        pattern_variety = len(common_patterns)
+        if pattern_variety <= 2:  # 韵律模式不多样
+            flow_score += 15
+        elif pattern_variety <= 4:
+            flow_score += 10
+        else:  # 韵律过于复杂
+            flow_score += 5
+
+        # 检查是否有过长的相同声调序列
+        for i in range(len(tones) - 2):
+            if tones[i] == tones[i+1] == tones[i+2]:
+                flow_score -= 5  # 三个相同声调减分
+
+        flow_score = max(0, min(30, flow_score + 15))  # 基础15分
+        return flow_score
+
+    def _calculate_pronunciation_harmony_score(self, pinyin_list):
+        """计算发音和谐度评分"""
+        if len(pinyin_list) < 2:
+            return 30
+
+        harmony_score = 0
+
+        # 检查发音的流畅度
+        for i in range(len(pinyin_list) - 1):
+            current = pinyin_list[i]
+            next_p = pinyin_list[i + 1]
+
+            # 检查是否有拗口的音节组合
+            if self._is_difficult_pronunciation(current, next_p):
+                harmony_score -= 3
+
+            # 检查韵母的和谐度
+            current_vowel = self._extract_vowel(current)
+            next_vowel = self._extract_vowel(next_p)
+
+            if current_vowel and next_vowel:
+                # 相同韵母和谐
+                if current_vowel[-1] == next_vowel[-1]:
+                    harmony_score += 2
+
+                # 检查鼻音和谐
+                if self._has_nasal_harmony(current_vowel, next_vowel):
+                    harmony_score += 1
+
+        harmony_score = max(0, min(30, harmony_score + 15))  # 基础15分
+        return harmony_score
+
+    def _is_difficult_pronunciation(self, pinyin1, pinyin2):
+        """检查是否是拗口的发音组合"""
+        # 简化的检查：如果两个字都有复杂的辅音组合
+        difficult_combos = [
+            ('zh', 'ch'), ('ch', 'zh'), ('sh', 'ch'), ('ch', 'sh'),
+            ('zh', 'sh'), ('sh', 'zh'), ('j', 'q'), ('q', 'j')
+        ]
+
+        for combo in difficult_combos:
+            if combo[0] in pinyin1.lower() and combo[1] in pinyin2.lower():
+                return True
+
+        return False
+
+    def _has_nasal_harmony(self, vowel1, vowel2):
+        """检查是否有鼻音和谐"""
+        nasal_sounds = ['n', 'ng', 'm']
+        has_nasal1 = any(sound in vowel1 for sound in nasal_sounds)
+        has_nasal2 = any(sound in vowel2 for sound in nasal_sounds)
+
+        # 鼻音相邻和谐
+        return has_nasal1 and has_nasal2
 
     def _get_rhythm_level(self, rhythm_score):
         """根据韵律分数获取等级"""
@@ -250,7 +486,189 @@ class PhonologyAnalyzer:
                 vowel_part += char
         return vowel_part
 
-    def _get_phonology_suggestions(self, tone_analysis, rhythm_score, harmony_analysis):
+    def _analyze_pronunciation_fluency(self, pinyin_list):
+        """
+        分析发音流畅度
+
+        Args:
+            pinyin_list: 拼音列表
+
+        Returns:
+            dict: 流畅度分析结果
+        """
+        fluency_score = 0
+        issues = []
+
+        for i in range(len(pinyin_list) - 1):
+            current = pinyin_list[i]
+            next_p = pinyin_list[i + 1]
+
+            # 检查连续的相同声母（可能拗口）
+            current_consonant = self._extract_consonant(current)
+            next_consonant = self._extract_consonant(next_p)
+
+            if current_consonant and next_consonant:
+                if current_consonant == next_consonant:
+                    fluency_score -= 5
+                    issues.append(f"连续相同声母: {current_consonant}")
+                elif self._are_difficult_consonants(current_consonant, next_consonant):
+                    fluency_score -= 3
+                    issues.append(f"拗口声母组合: {current_consonant}-{next_consonant}")
+
+            # 检查韵母和谐度
+            current_vowel = self._extract_vowel(current)
+            next_vowel = self._extract_vowel(next_p)
+
+            if current_vowel and next_vowel:
+                if current_vowel == next_vowel:
+                    fluency_score += 2  # 相同韵母和谐
+                elif self._are_harmonious_vowels(current_vowel, next_vowel):
+                    fluency_score += 1  # 相近韵母和谐
+
+        return {
+            'fluency_score': max(0, min(100, fluency_score + 50)),  # 基础50分
+            'issues': issues[:3],  # 最多显示3个问题
+            'fluency_level': '流畅' if fluency_score >= 40 else '一般' if fluency_score >= 20 else '需改进'
+        }
+
+    def _analyze_ancient_phonology(self, name_chars, pinyin_list):
+        """
+        分析古汉语音韵特征
+
+        Args:
+            name_chars: 汉字列表
+            pinyin_list: 拼音列表
+
+        Returns:
+            dict: 古汉语音韵分析结果
+        """
+        ancient_features = {
+            'consonant_groups': [],
+            'rhyme_harmony': [],
+            'tone_patterns': [],
+            'ancient_score': 0
+        }
+
+        # 分析声母分组（三十六字母）
+        consonants = [self._extract_consonant(pinyin) for pinyin in pinyin_list]
+        for i, consonant in enumerate(consonants):
+            if consonant:
+                group = self._classify_consonant_group(consonant)
+                if group:
+                    ancient_features['consonant_groups'].append({
+                        'char': name_chars[i],
+                        'consonant': consonant,
+                        'group': group
+                    })
+
+        # 分析韵母和谐（近似古汉语韵部）
+        vowels = [self._extract_vowel(pinyin) for pinyin in pinyin_list]
+        for i in range(len(vowels) - 1):
+            current_vowel = vowels[i]
+            next_vowel = vowels[i + 1]
+
+            if current_vowel and next_vowel:
+                rhyme_relation = self._analyze_vowel_rhyme_relation(current_vowel, next_vowel)
+                if rhyme_relation:
+                    ancient_features['rhyme_harmony'].append({
+                        'chars': f"{name_chars[i]}{name_chars[i+1]}",
+                        'relation': rhyme_relation
+                    })
+
+        # 计算古汉语音韵评分
+        group_score = len(set([item['group'] for item in ancient_features['consonant_groups']])) * 10
+        rhyme_score = len(ancient_features['rhyme_harmony']) * 15
+
+        ancient_features['ancient_score'] = min(100, group_score + rhyme_score)
+
+        return ancient_features
+
+    def _extract_consonant(self, pinyin):
+        """提取声母"""
+        if not pinyin or len(pinyin) < 2:
+            return None
+
+        # 移除声调数字
+        clean_pinyin = ''.join([c for c in pinyin if not c.isdigit()])
+
+        # 提取声母
+        vowels = 'aeiouü'
+        consonant = ''
+        for char in clean_pinyin:
+            if char not in vowels:
+                consonant += char
+            else:
+                break
+
+        return consonant if consonant else None
+
+    def _extract_vowel(self, pinyin):
+        """提取韵母"""
+        if not pinyin:
+            return None
+
+        # 移除声调数字
+        clean_pinyin = ''.join([c for c in pinyin if not c.isdigit()])
+
+        # 提取韵母部分
+        vowels = 'aeiouü'
+        vowel_part = ''
+        found_vowel = False
+
+        for char in clean_pinyin:
+            if char in vowels or found_vowel:
+                found_vowel = True
+                vowel_part += char
+
+        return vowel_part if vowel_part else None
+
+    def _are_difficult_consonants(self, c1, c2):
+        """检查是否是拗口的声母组合"""
+        difficult_pairs = [
+            ('zh', 'ch'), ('ch', 'zh'), ('sh', 'ch'), ('ch', 'sh'),
+            ('zh', 'sh'), ('sh', 'zh'), ('j', 'q'), ('q', 'j'),
+            ('z', 'c'), ('c', 'z'), ('s', 'c'), ('c', 's')
+        ]
+
+        return (c1, c2) in difficult_pairs or (c2, c1) in difficult_pairs
+
+    def _are_harmonious_vowels(self, v1, v2):
+        """检查韵母是否和谐"""
+        # 简化的韵母和谐判断
+        similar_vowels = {
+            'a': ['a', 'ai', 'an', 'ang', 'ao'],
+            'e': ['e', 'ei', 'en', 'eng', 'er'],
+            'i': ['i', 'ia', 'ian', 'iang', 'iao', 'ie', 'in', 'ing', 'iong', 'iu'],
+            'o': ['o', 'ong', 'ou'],
+            'u': ['u', 'ua', 'uai', 'uan', 'uang', 'ue', 'ui', 'un', 'uo'],
+            'ü': ['ü', 'ue', 'ui', 'un']
+        }
+
+        for group in similar_vowels.values():
+            if v1 in group and v2 in group:
+                return True
+
+        return False
+
+    def _classify_consonant_group(self, consonant):
+        """分类声母到三十六字母组"""
+        for group_name, consonants_in_group in self.CONSONANTS.items():
+            if consonant in consonants_in_group:
+                return group_name
+        return None
+
+    def _analyze_vowel_rhyme_relation(self, v1, v2):
+        """分析韵母的韵律关系"""
+        if v1 == v2:
+            return "同韵"
+        elif self._are_harmonious_vowels(v1, v2):
+            return "谐韵"
+        elif v1[-1] == v2[-1]:  # 相同韵尾
+            return "韵尾相同"
+        else:
+            return None
+
+    def _get_phonology_suggestions(self, tone_analysis, rhythm_score, harmony_analysis, fluency_analysis=None):
         """生成音韵学建议"""
         suggestions = []
 
@@ -265,15 +683,36 @@ class PhonologyAnalyzer:
         # 韵律建议
         if rhythm_score < 60:
             suggestions.append("平仄不协调，建议调整字词选择以达到平仄相间")
+        elif rhythm_score >= 80:
+            suggestions.append("韵律和谐度优秀，平仄相间自然流畅")
+
+        # 发音流畅度建议
+        if fluency_analysis:
+            if fluency_analysis['fluency_score'] < 40:
+                suggestions.append(f"发音流畅度需改进：{'; '.join(fluency_analysis['issues'])}")
+            elif fluency_analysis['fluency_score'] >= 70:
+                suggestions.append("发音流畅自然，音节衔接和谐")
 
         # 特殊和谐现象
-        if harmony_analysis['alliteration']:
-            suggestions.append(f"头韵和谐：{', '.join(harmony_analysis['alliteration'])}")
+        if harmony_analysis.get('alliteration'):
+            suggestions.append(f"✓ 头韵和谐：{', '.join(harmony_analysis['alliteration'])}")
 
-        if harmony_analysis['assonance']:
-            suggestions.append(f"韵律和谐：{', '.join(harmony_analysis['assonance'])}")
+        if harmony_analysis.get('assonance'):
+            suggestions.append(f"✓ 韵律和谐：{', '.join(harmony_analysis['assonance'])}")
 
-        return suggestions
+        # 古汉语音韵建议
+        if tone_analysis.get('tone_sequence'):
+            tone_seq = tone_analysis['tone_sequence']
+            if len(set(tone_seq)) == 1:
+                suggestions.append("声调过于单一，建议选择不同声调的字词搭配")
+            elif len(set(tone_seq)) >= 3:
+                suggestions.append("声调丰富和谐，具有古典韵味")
+
+        # 如果没有建议，添加正面评价
+        if not suggestions:
+            suggestions.append("音韵结构良好，整体和谐自然")
+
+        return suggestions[:5]  # 最多返回5条建议
 
     def get_phonology_score(self, phonology_analysis):
         """
