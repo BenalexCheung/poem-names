@@ -24,42 +24,53 @@ class NameGenerator:
     def _load_word_data(self):
         """加载字词数据到缓存"""
         try:
-            words = Word.objects.all()
+            words = Word.objects.prefetch_related('from_poetry').all()
             for word in words:
+                # 获取字词来源的诗词类型
+                poetry_types = set(word.from_poetry.values_list('poetry_type', flat=True))
+                has_shijing = 'shijing' in poetry_types
+                has_chuci = 'chuci' in poetry_types
+                
                 self.word_cache[word.character] = {
                     'pinyin': word.pinyin,
                     'gender_preference': word.gender_preference,
                     'gender_strength': getattr(word, 'gender_strength', 'weak'),
                     'meaning': word.meaning,
                     'tags': word.tags,
-                    'frequency': word.frequency
+                    'frequency': word.frequency,
+                    'has_shijing': has_shijing,  # 是否来自诗经
+                    'has_chuci': has_chuci,      # 是否来自楚辞
+                    'poetry_types': poetry_types  # 所有诗词类型集合
                 }
         except Exception as e:
             logger.warning(f"加载字词数据失败: {e}")
             self.word_cache = {}
 
     def _get_words_by_gender(self, gender):
-        """根据性别获取合适的字词 - 增强版性别区分"""
+        """根据性别获取合适的字词 - 增强版性别区分，区分男诗经女楚辞"""
         if gender == 'M':
-            # 男性字词选择策略
+            # 男性字词选择策略 - 只使用来自诗经的字词
             male_words = []
             neutral_words = []
 
-            # 1. 首先选择强性别倾向男性字词
+            # 1. 首先选择强性别倾向男性字词（且来自诗经）
             for char, data in self.word_cache.items():
-                if data['gender_preference'] == 'male' and data['gender_strength'] in ['strong', 'medium']:
+                if (data.get('has_shijing', False) and 
+                    data['gender_preference'] == 'male' and 
+                    data['gender_strength'] in ['strong', 'medium']):
                     male_words.append((char, data))
 
-            # 2. 补充弱性别倾向男性字词
+            # 2. 补充弱性别倾向男性字词（且来自诗经）
             for char, data in self.word_cache.items():
-                if (data['gender_preference'] == 'male' and data['gender_strength'] == 'weak') or \
-                   (data['gender_preference'] == 'neutral' and self._is_suitable_for_male(char, data)):
+                if (data.get('has_shijing', False) and
+                    ((data['gender_preference'] == 'male' and data['gender_strength'] == 'weak') or 
+                     (data['gender_preference'] == 'neutral' and self._is_suitable_for_male(char, data)))):
                     male_words.append((char, data))
 
-            # 3. 如果男性字词仍不够，补充中性字词（但标记为男性倾向）
+            # 3. 如果男性字词仍不够，补充来自诗经的中性字词
             if len(male_words) < 100:
                 for char, data in self.word_cache.items():
-                    if data['gender_preference'] == 'neutral':
+                    if data.get('has_shijing', False) and data['gender_preference'] == 'neutral':
                         neutral_words.append((char, data))
                         if len(male_words) + len(neutral_words) >= 150:
                             break
@@ -67,32 +78,35 @@ class NameGenerator:
             return male_words + neutral_words[:50]  # 限制中性字词数量
 
         elif gender == 'F':
-            # 女性字词选择策略
+            # 女性字词选择策略 - 只使用来自楚辞的字词
             female_words = []
             neutral_words = []
 
-            # 1. 首先选择强性别倾向女性字词
+            # 1. 首先选择强性别倾向女性字词（且来自楚辞）
             for char, data in self.word_cache.items():
-                if data['gender_preference'] == 'female' and data['gender_strength'] in ['strong', 'medium']:
+                if (data.get('has_chuci', False) and 
+                    data['gender_preference'] == 'female' and 
+                    data['gender_strength'] in ['strong', 'medium']):
                     female_words.append((char, data))
 
-            # 2. 补充弱性别倾向女性字词
+            # 2. 补充弱性别倾向女性字词（且来自楚辞）
             for char, data in self.word_cache.items():
-                if (data['gender_preference'] == 'female' and data['gender_strength'] == 'weak') or \
-                   (data['gender_preference'] == 'neutral' and self._is_suitable_for_female(char, data)):
+                if (data.get('has_chuci', False) and
+                    ((data['gender_preference'] == 'female' and data['gender_strength'] == 'weak') or 
+                     (data['gender_preference'] == 'neutral' and self._is_suitable_for_female(char, data)))):
                     female_words.append((char, data))
 
-            # 3. 如果女性字词仍不够，补充中性字词（但标记为女性倾向）
+            # 3. 如果女性字词仍不够，补充来自楚辞的中性字词
             if len(female_words) < 100:
                 for char, data in self.word_cache.items():
-                    if data['gender_preference'] == 'neutral':
+                    if data.get('has_chuci', False) and data['gender_preference'] == 'neutral':
                         neutral_words.append((char, data))
                         if len(female_words) + len(neutral_words) >= 150:
                             break
 
             return female_words + neutral_words[:50]  # 限制中性字词数量
         else:
-            # 中性或未知性别
+            # 中性或未知性别 - 可以使用所有字词
             return [(char, data) for char, data in self.word_cache.items()]
 
     def _is_suitable_for_male(self, char, data):

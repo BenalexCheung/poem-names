@@ -215,6 +215,32 @@ class NameViewSet(viewsets.ModelViewSet):
                 name_obj.phonology_analysis = name_dict.get('phonology_analysis', {})
                 name_obj.bagua_suggestions = name_dict.get('bagua_suggestions', {})
                 name_obj.name_score = name_dict.get('name_score', {})
+                
+                # 设置参考诗词：根据性别选择对应的诗词类型
+                # 男性名字使用诗经，女性名字使用楚辞
+                poetry_type = 'shijing' if name_dict['gender'] == 'M' else 'chuci'
+                reference_poems = Poetry.objects.filter(poetry_type=poetry_type)
+                
+                # 获取名字中每个字对应的诗词
+                name_chars = list(name_dict['given_name'])
+                related_poems = set()
+                for char in name_chars:
+                    try:
+                        word_obj = Word.objects.filter(character=char).first()
+                        if word_obj:
+                            # 只添加对应诗词类型的诗词
+                            char_poems = word_obj.from_poetry.filter(poetry_type=poetry_type)
+                            related_poems.update(char_poems)
+                    except Exception:
+                        continue
+                
+                # 如果找到了相关诗词，使用它们；否则使用该类型的所有诗词作为参考
+                if related_poems:
+                    name_obj.reference_poetry.set(related_poems)
+                else:
+                    # 如果没有找到，至少添加该类型的一些诗词作为参考
+                    name_obj.reference_poetry.set(reference_poems[:3])
+                
                 name_obj.save()
                 saved_names.append(name_obj)
 
