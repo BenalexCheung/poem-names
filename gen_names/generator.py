@@ -9,6 +9,7 @@ from .models import Word, Surname, Poetry, Name
 from .wuxing_analyzer import wuxing_analyzer
 from .phonology_analyzer import phonology_analyzer
 from .ai_recommender import ai_recommender
+from .traditional_analyzer import traditional_analyzer
 
 logger = logging.getLogger(__name__)
 
@@ -50,59 +51,99 @@ class NameGenerator:
         """根据性别获取合适的字词 - 增强版性别区分，区分男诗经女楚辞"""
         if gender == 'M':
             # 男性字词选择策略 - 只使用来自诗经的字词
+            # 优先选择只在诗经中出现的字，避免同时出现在楚辞中的字
             male_words = []
             neutral_words = []
+            mixed_words = []  # 同时出现在诗经和楚辞中的字（备用）
 
-            # 1. 首先选择强性别倾向男性字词（且来自诗经）
+            # 1. 首先选择强性别倾向男性字词（且只来自诗经，不来自楚辞）
             for char, data in self.word_cache.items():
                 if (data.get('has_shijing', False) and 
+                    not data.get('has_chuci', False) and  # 确保不来自楚辞
                     data['gender_preference'] == 'male' and 
                     data['gender_strength'] in ['strong', 'medium']):
                     male_words.append((char, data))
+                elif (data.get('has_shijing', False) and 
+                      data.get('has_chuci', False) and  # 同时出现在两者中
+                      data['gender_preference'] == 'male' and 
+                      data['gender_strength'] in ['strong', 'medium']):
+                    mixed_words.append((char, data))  # 作为备用
 
-            # 2. 补充弱性别倾向男性字词（且来自诗经）
+            # 2. 补充弱性别倾向男性字词（且只来自诗经）
             for char, data in self.word_cache.items():
-                if (data.get('has_shijing', False) and
+                if (data.get('has_shijing', False) and 
+                    not data.get('has_chuci', False) and  # 确保不来自楚辞
                     ((data['gender_preference'] == 'male' and data['gender_strength'] == 'weak') or 
                      (data['gender_preference'] == 'neutral' and self._is_suitable_for_male(char, data)))):
                     male_words.append((char, data))
+                elif (data.get('has_shijing', False) and 
+                      data.get('has_chuci', False) and  # 同时出现在两者中
+                      ((data['gender_preference'] == 'male' and data['gender_strength'] == 'weak') or 
+                       (data['gender_preference'] == 'neutral' and self._is_suitable_for_male(char, data)))):
+                    mixed_words.append((char, data))  # 作为备用
 
-            # 3. 如果男性字词仍不够，补充来自诗经的中性字词
+            # 3. 如果男性字词仍不够，补充只来自诗经的中性字词
             if len(male_words) < 100:
                 for char, data in self.word_cache.items():
-                    if data.get('has_shijing', False) and data['gender_preference'] == 'neutral':
+                    if (data.get('has_shijing', False) and 
+                        not data.get('has_chuci', False) and  # 确保不来自楚辞
+                        data['gender_preference'] == 'neutral'):
                         neutral_words.append((char, data))
                         if len(male_words) + len(neutral_words) >= 150:
                             break
+                
+                # 如果还不够，才使用同时出现在两者中的字（但标记为mixed）
+                if len(male_words) + len(neutral_words) < 100:
+                    neutral_words.extend(mixed_words[:50])
 
             return male_words + neutral_words[:50]  # 限制中性字词数量
 
         elif gender == 'F':
             # 女性字词选择策略 - 只使用来自楚辞的字词
+            # 优先选择只在楚辞中出现的字，避免同时出现在诗经中的字
             female_words = []
             neutral_words = []
+            mixed_words = []  # 同时出现在诗经和楚辞中的字（备用）
 
-            # 1. 首先选择强性别倾向女性字词（且来自楚辞）
+            # 1. 首先选择强性别倾向女性字词（且只来自楚辞，不来自诗经）
             for char, data in self.word_cache.items():
                 if (data.get('has_chuci', False) and 
+                    not data.get('has_shijing', False) and  # 确保不来自诗经
                     data['gender_preference'] == 'female' and 
                     data['gender_strength'] in ['strong', 'medium']):
                     female_words.append((char, data))
+                elif (data.get('has_chuci', False) and 
+                      data.get('has_shijing', False) and  # 同时出现在两者中
+                      data['gender_preference'] == 'female' and 
+                      data['gender_strength'] in ['strong', 'medium']):
+                    mixed_words.append((char, data))  # 作为备用
 
-            # 2. 补充弱性别倾向女性字词（且来自楚辞）
+            # 2. 补充弱性别倾向女性字词（且只来自楚辞）
             for char, data in self.word_cache.items():
-                if (data.get('has_chuci', False) and
+                if (data.get('has_chuci', False) and 
+                    not data.get('has_shijing', False) and  # 确保不来自诗经
                     ((data['gender_preference'] == 'female' and data['gender_strength'] == 'weak') or 
                      (data['gender_preference'] == 'neutral' and self._is_suitable_for_female(char, data)))):
                     female_words.append((char, data))
+                elif (data.get('has_chuci', False) and 
+                      data.get('has_shijing', False) and  # 同时出现在两者中
+                      ((data['gender_preference'] == 'female' and data['gender_strength'] == 'weak') or 
+                       (data['gender_preference'] == 'neutral' and self._is_suitable_for_female(char, data)))):
+                    mixed_words.append((char, data))  # 作为备用
 
-            # 3. 如果女性字词仍不够，补充来自楚辞的中性字词
+            # 3. 如果女性字词仍不够，补充只来自楚辞的中性字词
             if len(female_words) < 100:
                 for char, data in self.word_cache.items():
-                    if data.get('has_chuci', False) and data['gender_preference'] == 'neutral':
+                    if (data.get('has_chuci', False) and 
+                        not data.get('has_shijing', False) and  # 确保不来自诗经
+                        data['gender_preference'] == 'neutral'):
                         neutral_words.append((char, data))
                         if len(female_words) + len(neutral_words) >= 150:
                             break
+                
+                # 如果还不够，才使用同时出现在两者中的字（但标记为mixed）
+                if len(female_words) + len(neutral_words) < 100:
+                    neutral_words.extend(mixed_words[:50])
 
             return female_words + neutral_words[:50]  # 限制中性字词数量
         else:
@@ -153,8 +194,8 @@ class NameGenerator:
         wuxing = data.get('wuxing', 'unknown')
         return wuxing in ['shui', 'tu', 'mu']  # 水土木属阴柔
 
-    def _filter_words_by_preferences(self, words, tone_preference=None, meaning_tags=None):
-        """根据偏好过滤字词"""
+    def _filter_words_by_preferences(self, words, tone_preference=None, meaning_tags=None, traditional_analysis=None):
+        """根据偏好过滤字词，支持传统元素分析"""
         filtered_words = words
 
         if tone_preference:
@@ -181,16 +222,52 @@ class NameGenerator:
                 tag_filtered = filtered_words
             filtered_words = tag_filtered
 
+        # 根据传统元素分析过滤和加权
+        if traditional_analysis:
+            wuxing_suggestions = traditional_analysis.get('wuxing_suggestions', {})
+            preferred_wuxing = wuxing_suggestions.get('preferred_wuxing', [])
+            avoid_wuxing = wuxing_suggestions.get('avoid_wuxing', [])
+            
+            if preferred_wuxing or avoid_wuxing:
+                # 为字词添加五行权重
+                weighted_words = []
+                for char, data in filtered_words:
+                    char_wuxing = data.get('wuxing', 'unknown')
+                    weight = 1.0
+                    
+                    # 如果字词的五行在推荐列表中，增加权重
+                    if char_wuxing in preferred_wuxing:
+                        weight = 1.5  # 提高50%权重
+                    # 如果字词的五行在避免列表中，降低权重
+                    elif char_wuxing in avoid_wuxing:
+                        weight = 0.3  # 降低70%权重
+                    
+                    weighted_words.append((char, data, weight))
+                
+                # 按权重排序，但保留所有字词（不直接过滤，让评分系统处理）
+                weighted_words.sort(key=lambda x: x[2], reverse=True)
+                # 将权重信息添加到data中
+                filtered_words = [(char, {**data, 'traditional_weight': weight}) 
+                                 for char, data, weight in weighted_words]
+
         return filtered_words
 
-    def _calculate_name_score(self, name_chars, preferences):
-        """计算名字的评分"""
+    def _calculate_name_score(self, name_chars, preferences, filtered_words=None):
+        """计算名字的评分，考虑传统元素权重"""
         score = 0
+        filtered_words_dict = {char: data for char, data in (filtered_words or [])}
 
         # 字词频率加分
         for char in name_chars:
             if char in self.word_cache:
-                score += min(self.word_cache[char]['frequency'] / 100, 10)  # 最高10分
+                base_score = min(self.word_cache[char]['frequency'] / 100, 10)  # 最高10分
+                
+                # 如果字词有传统元素权重，应用权重
+                if filtered_words_dict and char in filtered_words_dict:
+                    traditional_weight = filtered_words_dict[char].get('traditional_weight', 1.0)
+                    base_score *= traditional_weight
+                
+                score += base_score
 
         # 含义一致性加分
         if preferences.get('meaning_tags'):
@@ -229,20 +306,38 @@ class NameGenerator:
         if preferences is None:
             preferences = {}
 
+        # 分析传统元素（如果提供）
+        traditional_analysis = None
+        if any([preferences.get('shengxiao'), preferences.get('shichen'), preferences.get('birth_month')]):
+            traditional_analysis = traditional_analyzer.analyze_traditional_elements(
+                shengxiao=preferences.get('shengxiao'),
+                shichen=preferences.get('shichen'),
+                month=preferences.get('birth_month'),
+                is_lunar=preferences.get('is_lunar_month', True)
+            )
+            # 获取五行建议
+            wuxing_suggestions = traditional_analyzer.get_wuxing_suggestions_for_name(traditional_analysis)
+            traditional_analysis['wuxing_suggestions'] = wuxing_suggestions
+
         # 获取基础字词
         base_words = self._get_words_by_gender(gender)
         if not base_words:
             return []
 
-        # 根据偏好过滤
+        # 根据偏好过滤（包括传统元素）
         filtered_words = self._filter_words_by_preferences(
             base_words,
             tone_preference=preferences.get('tone_preference'),
-            meaning_tags=preferences.get('meaning_tags')
+            meaning_tags=preferences.get('meaning_tags'),
+            traditional_analysis=traditional_analysis
         )
 
         if not filtered_words:
             filtered_words = base_words
+        
+        # 将传统分析结果保存到preferences中，供后续使用
+        if traditional_analysis:
+            preferences['_traditional_analysis'] = traditional_analysis
 
         # 生成候选名字 - 添加多样性约束
         candidates = []
@@ -328,8 +423,8 @@ class NameGenerator:
 
             generated_combinations.add(name_tuple)
 
-            # 计算评分
-            score = self._calculate_name_score(name_chars, preferences)
+            # 计算评分（考虑传统元素权重）
+            score = self._calculate_name_score(name_chars, preferences, filtered_words)
 
             candidates.append({
                 'name': name,
@@ -433,6 +528,9 @@ class NameGenerator:
                 'level': self._get_comprehensive_level(total_score)
             }
 
+            # 获取传统元素分析结果
+            traditional_analysis = preferences.get('_traditional_analysis')
+            
             name_data = {
                 'surname': surname_obj,
                 'given_name': candidate['name'],
@@ -445,7 +543,13 @@ class NameGenerator:
                 'bagua_suggestions': bagua_suggestions,
                 'name_score': name_score,
                 'ai_score': 0,  # AI评分，稍后计算
-                '_full_name': full_name  # 临时存储全名用于去重
+                '_full_name': full_name,  # 临时存储全名用于去重
+                # 传统元素信息
+                'shengxiao': preferences.get('shengxiao'),
+                'shichen': preferences.get('shichen'),
+                'birth_month': preferences.get('birth_month'),
+                'is_lunar_month': preferences.get('is_lunar_month', True),
+                'traditional_analysis': traditional_analysis if traditional_analysis else {}
             }
 
             result.append(name_data)

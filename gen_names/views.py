@@ -2,6 +2,7 @@
 视图模块
 定义API端点和视图逻辑
 """
+import logging
 from rest_framework import viewsets, status, generics
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
@@ -13,6 +14,8 @@ from django.shortcuts import get_object_or_404
 
 from django.contrib.auth import get_user_model
 from .models import Surname, Poetry, Word, Name, UserFavorite
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 from .serializers import (
@@ -179,7 +182,7 @@ class NameViewSet(viewsets.ModelViewSet):
             # 检查是否启用AI推荐
             use_ai = data.get('use_ai', True)
 
-            # 生成名字
+            # 生成名字（包含传统元素参数）
             generated_names = generate_multiple_names(
                 surname=surname,
                 gender=data['gender'],
@@ -187,7 +190,11 @@ class NameViewSet(viewsets.ModelViewSet):
                 length=data['length'],
                 preferences={
                     'tone_preference': data.get('tone_preference', 'unknown'),
-                    'meaning_tags': data.get('meaning_tags', [])
+                    'meaning_tags': data.get('meaning_tags', []),
+                    'shengxiao': data.get('shengxiao'),
+                    'shichen': data.get('shichen'),
+                    'birth_month': data.get('birth_month'),
+                    'is_lunar_month': data.get('is_lunar_month', True)
                 },
                 user=request.user,
                 use_ai=use_ai
@@ -216,30 +223,69 @@ class NameViewSet(viewsets.ModelViewSet):
                 name_obj.bagua_suggestions = name_dict.get('bagua_suggestions', {})
                 name_obj.name_score = name_dict.get('name_score', {})
                 
+                # 设置传统元素信息（如果字段存在）
+                try:
+                    if hasattr(name_obj, 'shengxiao'):
+                        name_obj.shengxiao = name_dict.get('shengxiao')
+                    if hasattr(name_obj, 'shichen'):
+                        name_obj.shichen = name_dict.get('shichen')
+                    if hasattr(name_obj, 'birth_month'):
+                        name_obj.birth_month = name_dict.get('birth_month')
+                    if hasattr(name_obj, 'is_lunar_month'):
+                        name_obj.is_lunar_month = name_dict.get('is_lunar_month', True)
+                    if hasattr(name_obj, 'traditional_analysis'):
+                        name_obj.traditional_analysis = name_dict.get('traditional_analysis', {})
+                except Exception as e:
+                    # 如果传统元素字段不存在（迁移未运行），忽略错误
+                    logger.warning(f"设置传统元素信息失败（可能需要运行迁移）: {e}")
+                
                 # 设置参考诗词：根据性别选择对应的诗词类型
                 # 男性名字使用诗经，女性名字使用楚辞
                 poetry_type = 'shijing' if name_dict['gender'] == 'M' else 'chuci'
-                reference_poems = Poetry.objects.filter(poetry_type=poetry_type)
                 
-                # 获取名字中每个字对应的诗词
+                # 先清空所有关联，确保没有错误的关联
+                name_obj.reference_poetry.clear()
+                
+                # 获取名字中每个字对应的诗词（只选择指定类型的诗词）
                 name_chars = list(name_dict['given_name'])
-                related_poems = set()
+                related_poem_ids = set()
+                
                 for char in name_chars:
                     try:
                         word_obj = Word.objects.filter(character=char).first()
                         if word_obj:
-                            # 只添加对应诗词类型的诗词
-                            char_poems = word_obj.from_poetry.filter(poetry_type=poetry_type)
-                            related_poems.update(char_poems)
-                    except Exception:
+                            # 只获取指定类型的诗词ID（直接从Word的关联中过滤）
+                            char_poem_ids = word_obj.from_poetry.filter(
+                                poetry_type=poetry_type
+                            ).values_list('id', flat=True)
+                            related_poem_ids.update(char_poem_ids)
+                    except Exception as e:
+                        logger.warning(f"获取字符 {char} 的诗词关联失败: {e}")
                         continue
                 
-                # 如果找到了相关诗词，使用它们；否则使用该类型的所有诗词作为参考
-                if related_poems:
-                    name_obj.reference_poetry.set(related_poems)
+                # 通过ID直接查询，确保类型正确（三重验证）
+                if related_poem_ids:
+                    valid_poems = Poetry.objects.filter(
+                        id__in=related_poem_ids,
+                        poetry_type=poetry_type  # 双重验证：确保类型正确
+                    )
+                    # 三重验证：再次检查每个诗词的类型
+                    final_poems = [p for p in valid_poems if p.poetry_type == poetry_type]
+                    if final_poems:
+                        name_obj.reference_poetry.set(final_poems)
+                        logger.info(f"名字 {name_obj.full_name} 关联了 {len(final_poems)} 个{poetry_type}诗词")
+                    else:
+                        # 如果验证后没有有效诗词，使用该类型的一些诗词作为参考
+                        fallback_poems = Poetry.objects.filter(poetry_type=poetry_type)[:3]
+                        if fallback_poems.exists():
+                            name_obj.reference_poetry.set(fallback_poems)
+                            logger.warning(f"名字 {name_obj.full_name} 没有找到匹配的诗词，使用备用诗词")
                 else:
                     # 如果没有找到，至少添加该类型的一些诗词作为参考
-                    name_obj.reference_poetry.set(reference_poems[:3])
+                    fallback_poems = Poetry.objects.filter(poetry_type=poetry_type)[:3]
+                    if fallback_poems.exists():
+                        name_obj.reference_poetry.set(fallback_poems)
+                        logger.warning(f"名字 {name_obj.full_name} 的字符没有找到匹配的诗词，使用备用诗词")
                 
                 name_obj.save()
                 saved_names.append(name_obj)

@@ -347,8 +347,27 @@ class PoetryDataProcessor:
                         'tags': attributes['tags']
                     }
                 )
+                # 只关联包含该字符的诗词（而不是所有诗词）
                 if created:
-                    word.from_poetry.add(*all_poems)
+                    # 查找包含该字符的诗词
+                    containing_poems = []
+                    for poem in all_poems:
+                        if word_text in poem.content:
+                            containing_poems.append(poem)
+                    if containing_poems:
+                        word.from_poetry.add(*containing_poems)
+                    word.save()
+                else:
+                    # 如果字已存在，也需要更新关联关系（确保准确性）
+                    # 查找包含该字符的诗词
+                    containing_poems = []
+                    for poem in all_poems:
+                        if word_text in poem.content:
+                            containing_poems.append(poem)
+                    # 更新关联关系
+                    word.from_poetry.clear()
+                    if containing_poems:
+                        word.from_poetry.add(*containing_poems)
                     word.save()
 
         logger.info("字词数据导入完成")

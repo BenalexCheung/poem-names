@@ -124,6 +124,12 @@ class Name(models.Model):
     phonology_analysis = models.JSONField(default=dict, verbose_name="音韵分析")
     bagua_suggestions = models.JSONField(default=dict, verbose_name="八卦建议")
     name_score = models.JSONField(default=dict, verbose_name="名字评分")
+    # 传统元素信息
+    shengxiao = models.CharField(max_length=20, blank=True, null=True, verbose_name="生肖")
+    shichen = models.CharField(max_length=20, blank=True, null=True, verbose_name="时辰")
+    birth_month = models.IntegerField(blank=True, null=True, verbose_name="出生月份")
+    is_lunar_month = models.BooleanField(default=True, verbose_name="是否农历月份")
+    traditional_analysis = models.JSONField(default=dict, verbose_name="传统元素分析")
     is_favorite = models.BooleanField(default=False, verbose_name="是否收藏")
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='generated_names', verbose_name="创建者")
     created_at = models.DateTimeField(auto_now_add=True)
