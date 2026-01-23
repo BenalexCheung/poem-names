@@ -361,6 +361,94 @@ const NameCard = ({ name, showFavorite = true }) => {
             </>
           )}
 
+          {/* 传统元素信息 */}
+          {(name.shengxiao || name.shichen || name.birth_month || (name.traditional_analysis && Object.keys(name.traditional_analysis).length > 0)) && (
+            <>
+              <Divider style={{ margin: '16px 0' }} />
+              <div style={{ marginBottom: '16px' }}>
+                <Text strong>🎋 传统元素</Text>
+                <div style={{ marginTop: '12px' }}>
+                  <Row gutter={[12, 8]}>
+                    {name.shengxiao && (
+                      <Col span={8}>
+                        <div style={{ textAlign: 'center', padding: '10px', background: '#fff7e6', borderRadius: '6px' }}>
+                          <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>生肖</div>
+                          <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#fa8c16' }}>
+                            {name.shengxiao === 'rat' ? '鼠' : 
+                             name.shengxiao === 'ox' ? '牛' :
+                             name.shengxiao === 'tiger' ? '虎' :
+                             name.shengxiao === 'rabbit' ? '兔' :
+                             name.shengxiao === 'dragon' ? '龙' :
+                             name.shengxiao === 'snake' ? '蛇' :
+                             name.shengxiao === 'horse' ? '马' :
+                             name.shengxiao === 'goat' ? '羊' :
+                             name.shengxiao === 'monkey' ? '猴' :
+                             name.shengxiao === 'rooster' ? '鸡' :
+                             name.shengxiao === 'dog' ? '狗' :
+                             name.shengxiao === 'pig' ? '猪' : name.shengxiao}
+                          </div>
+                        </div>
+                      </Col>
+                    )}
+                    {name.shichen && (
+                      <Col span={8}>
+                        <div style={{ textAlign: 'center', padding: '10px', background: '#f0f8ff', borderRadius: '6px' }}>
+                          <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>时辰</div>
+                          <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1890ff' }}>
+                            {name.shichen === 'zi' ? '子时' :
+                             name.shichen === 'chou' ? '丑时' :
+                             name.shichen === 'yin' ? '寅时' :
+                             name.shichen === 'mao' ? '卯时' :
+                             name.shichen === 'chen' ? '辰时' :
+                             name.shichen === 'si' ? '巳时' :
+                             name.shichen === 'wu' ? '午时' :
+                             name.shichen === 'wei' ? '未时' :
+                             name.shichen === 'shen' ? '申时' :
+                             name.shichen === 'you' ? '酉时' :
+                             name.shichen === 'xu' ? '戌时' :
+                             name.shichen === 'hai' ? '亥时' : name.shichen}
+                          </div>
+                        </div>
+                      </Col>
+                    )}
+                    {name.birth_month && (
+                      <Col span={8}>
+                        <div style={{ textAlign: 'center', padding: '10px', background: '#f6ffed', borderRadius: '6px' }}>
+                          <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>出生月份</div>
+                          <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#52c41a' }}>
+                            {name.birth_month}月 {name.is_lunar_month ? '(农历)' : '(公历)'}
+                          </div>
+                        </div>
+                      </Col>
+                    )}
+                  </Row>
+                  
+                  {/* 传统元素分析结果 */}
+                  {name.traditional_analysis && name.traditional_analysis.dominant_wuxing && (
+                    <div style={{ marginTop: '12px', padding: '12px', background: '#f0f9ff', borderRadius: '6px', border: '1px solid #bae7ff' }}>
+                      <div style={{ fontSize: '12px', color: '#666', marginBottom: '6px' }}>五行分析</div>
+                      <div style={{ fontSize: '13px', color: '#333' }}>
+                        <Tag color="blue" style={{ marginRight: '8px' }}>
+                          主属性: {getWuxingName(name.traditional_analysis.dominant_wuxing)}
+                        </Tag>
+                        {name.traditional_analysis.recommended_wuxing && name.traditional_analysis.recommended_wuxing.length > 0 && (
+                          <Tag color="green" style={{ marginRight: '8px' }}>
+                            推荐: {name.traditional_analysis.recommended_wuxing.map(w => getWuxingName(w)).join('、')}
+                          </Tag>
+                        )}
+                        {name.traditional_analysis.summary && (
+                          <div style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
+                            {name.traditional_analysis.summary}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
           {/* 八卦建议 */}
           {name.bagua_suggestions && name.bagua_suggestions.suggestions && name.bagua_suggestions.suggestions.length > 0 && (
             <>

@@ -128,7 +128,12 @@ const NameGenerator = () => {
         count: values.count || 5,
         length: values.length || 2,
         tone_preference: values.tone_preference || 'unknown',
-        meaning_tags: values.meaning_tags || []
+        meaning_tags: values.meaning_tags || [],
+        // 传统元素参数
+        shengxiao: values.shengxiao,
+        shichen: values.shichen,
+        birth_month: values.birth_month,
+        is_lunar_month: values.is_lunar_month !== undefined ? values.is_lunar_month : true
       };
 
       await dispatch(generateNames(params)).unwrap();
@@ -185,7 +190,8 @@ const NameGenerator = () => {
                 gender: 'M',
                 count: 5,
                 length: 2,
-                tone_preference: 'unknown'
+                tone_preference: 'unknown',
+                is_lunar_month: true
               }}
               size="large"
             >
@@ -296,6 +302,86 @@ const NameGenerator = () => {
               >
                 <Switch checkedChildren="开启" unCheckedChildren="关闭" />
               </Form.Item>
+
+              {/* 传统元素输入区域 */}
+              <div style={{ marginTop: 24, padding: 16, background: '#f0f9ff', borderRadius: 8, border: '1px solid #bae7ff' }}>
+                <div style={{ marginBottom: 16, fontWeight: 'bold', color: '#1890ff' }}>
+                  🎋 传统元素（可选）- 结合五行推荐
+                </div>
+                
+                <Form.Item
+                  name="shengxiao"
+                  label="生肖"
+                  tooltip="选择生肖，系统会根据五行相生相克推荐合适的字"
+                >
+                  <Select placeholder="选择生肖（可选）" allowClear>
+                    <Option value="rat">鼠</Option>
+                    <Option value="ox">牛</Option>
+                    <Option value="tiger">虎</Option>
+                    <Option value="rabbit">兔</Option>
+                    <Option value="dragon">龙</Option>
+                    <Option value="snake">蛇</Option>
+                    <Option value="horse">马</Option>
+                    <Option value="goat">羊</Option>
+                    <Option value="monkey">猴</Option>
+                    <Option value="rooster">鸡</Option>
+                    <Option value="dog">狗</Option>
+                    <Option value="pig">猪</Option>
+                  </Select>
+                </Form.Item>
+
+                <Form.Item
+                  name="shichen"
+                  label="时辰"
+                  tooltip="选择出生时辰，系统会根据五行推荐合适的字"
+                >
+                  <Select placeholder="选择时辰（可选）" allowClear>
+                    <Option value="zi">子时 (23:00-01:00)</Option>
+                    <Option value="chou">丑时 (01:00-03:00)</Option>
+                    <Option value="yin">寅时 (03:00-05:00)</Option>
+                    <Option value="mao">卯时 (05:00-07:00)</Option>
+                    <Option value="chen">辰时 (07:00-09:00)</Option>
+                    <Option value="si">巳时 (09:00-11:00)</Option>
+                    <Option value="wu">午时 (11:00-13:00)</Option>
+                    <Option value="wei">未时 (13:00-15:00)</Option>
+                    <Option value="shen">申时 (15:00-17:00)</Option>
+                    <Option value="you">酉时 (17:00-19:00)</Option>
+                    <Option value="xu">戌时 (19:00-21:00)</Option>
+                    <Option value="hai">亥时 (21:00-23:00)</Option>
+                  </Select>
+                </Form.Item>
+
+                <Form.Item
+                  name="birth_month"
+                  label="出生月份"
+                  tooltip="选择出生月份，系统会根据季节和五行推荐合适的字"
+                >
+                  <Select placeholder="选择月份（可选）" allowClear>
+                    <Option value={1}>一月</Option>
+                    <Option value={2}>二月</Option>
+                    <Option value={3}>三月</Option>
+                    <Option value={4}>四月</Option>
+                    <Option value={5}>五月</Option>
+                    <Option value={6}>六月</Option>
+                    <Option value={7}>七月</Option>
+                    <Option value={8}>八月</Option>
+                    <Option value={9}>九月</Option>
+                    <Option value={10}>十月</Option>
+                    <Option value={11}>十一月</Option>
+                    <Option value={12}>十二月</Option>
+                  </Select>
+                </Form.Item>
+
+                <Form.Item
+                  name="is_lunar_month"
+                  label="农历月份"
+                  valuePropName="checked"
+                  initialValue={true}
+                  tooltip="选择是否为农历月份，系统会根据农历或公历的五行对应关系推荐"
+                >
+                  <Switch checkedChildren="农历" unCheckedChildren="公历" />
+                </Form.Item>
+              </div>
 
               {/* LLM增强功能 */}
               {llmStatus && (
